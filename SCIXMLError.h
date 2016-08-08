@@ -12,17 +12,15 @@
 
 
 typedef NS_ENUM(NSUInteger, SCIXMLErrorCode) {
-	SCIXMLErrorCodeParserInit,            // failed to initialize parser
-	SCIXMLErrorCodeMalformedInput,        // malformed XML, cannot parse
-	SCIXMLErrorCodeNotUTF8Encoded,        // input data is not in UTF-8
+    SCIXMLErrorCodeParserInit,            // failed to initialize parser
+    SCIXMLErrorCodeMalformedInput,        // malformed XML, cannot parse
+    SCIXMLErrorCodeNotUTF8Encoded,        // input data is not in UTF-8
 };
 
 
 NS_ASSUME_NONNULL_BEGIN
 
-
 FOUNDATION_EXPORT NSString *const SCIXMLErrorDomain;
-
 
 @interface NSError (SCIXMLSerialization)
 + (NSError *)SCIXMLErrorWithCode:(SCIXMLErrorCode)errorCode;

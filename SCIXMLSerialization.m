@@ -27,12 +27,12 @@ NS_ASSUME_NONNULL_BEGIN
 @interface SCIXMLSerialization ()
 
 + (NSDictionary *)compactDictionary:(NSDictionary *)canonical
-					  withTransform:(SCIXMLCompactingTransform *)transform
-							  error:(NSError *__autoreleasing *_Nullable)error;
+                      withTransform:(SCIXMLCompactingTransform *)transform
+                              error:(NSError *__autoreleasing *_Nullable)error;
 
 + (NSDictionary *)canonicalizeDictionary:(NSDictionary *)compacted
-						   withTransform:(SCIXMLCanonicalizingTransform *)transform
-								   error:(NSError *__autoreleasing *_Nullable)error;
+                           withTransform:(SCIXMLCanonicalizingTransform *)transform
+                                   error:(NSError *__autoreleasing *_Nullable)error;
 
 + (NSDictionary *)dictionaryWithNode:(xmlNode *)xNode;
 
@@ -45,168 +45,168 @@ NS_ASSUME_NONNULL_END
 #pragma mark - Internal methods
 
 + (NSDictionary *)dictionaryWithNode:(xmlNode *)node {
-	NSMutableDictionary *dict = [NSMutableDictionary new];
+    NSMutableDictionary *dict = [NSMutableDictionary new];
 
-	switch (node->type) {
-	case XML_ELEMENT_NODE: {
-		dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeElement;
-		dict[SCIXMLNodeKeyName] = @((const char *)node->name);
-		dict[SCIXMLNodeKeyChildren] = [NSMutableArray new];
-		dict[SCIXMLNodeKeyAttributes] = [NSMutableDictionary new];
+    switch (node->type) {
+    case XML_ELEMENT_NODE: {
+        dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeElement;
+        dict[SCIXMLNodeKeyName] = @((const char *)node->name);
+        dict[SCIXMLNodeKeyChildren] = [NSMutableArray new];
+        dict[SCIXMLNodeKeyAttributes] = [NSMutableDictionary new];
 
-		// Collect attributes
-		for (xmlAttr *attr = node->properties; attr != NULL; attr = attr->next) {
-			xmlChar *value = xmlGetProp(node, attr->name);
-			dict[SCIXMLNodeKeyAttributes][@((const char *)attr->name)] = @((const char *)value);
-			xmlFree(value);
-		}
+        // Collect attributes
+        for (xmlAttr *attr = node->properties; attr != NULL; attr = attr->next) {
+            xmlChar *value = xmlGetProp(node, attr->name);
+            dict[SCIXMLNodeKeyAttributes][@((const char *)attr->name)] = @((const char *)value);
+            xmlFree(value);
+        }
 
-		// Collect children
-		for (xmlNode *child = node->children; child != NULL; child = child->next) {
-			[dict[SCIXMLNodeKeyChildren] addObject:[self dictionaryWithNode:child]];
-		}
+        // Collect children
+        for (xmlNode *child = node->children; child != NULL; child = child->next) {
+            [dict[SCIXMLNodeKeyChildren] addObject:[self dictionaryWithNode:child]];
+        }
 
-		break;
-	}
-	case XML_TEXT_NODE: {
-		dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeText;
-		dict[SCIXMLNodeKeyText] = @((const char *)node->content);
-		break;
-	}
-	default:
-		// TODO(H2CO3): do something?
-		// Especially w.r.t. XML_CDATA_SECTION_NODE, XML_COMMENT_NODE, XML_DTD_NODE, etc.
-		break;
-	}
+        break;
+    }
+    case XML_TEXT_NODE: {
+        dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeText;
+        dict[SCIXMLNodeKeyText] = @((const char *)node->content);
+        break;
+    }
+    default:
+        // TODO(H2CO3): do something?
+        // Especially w.r.t. XML_CDATA_SECTION_NODE, XML_COMMENT_NODE, XML_DTD_NODE, etc.
+        break;
+    }
 
-	return dict;
+    return dict;
 }
 
 + (NSDictionary *)compactDictionary:(NSDictionary *)canonical
-					  withTransform:(SCIXMLCompactingTransform *)transform
-							  error:(NSError *__autoreleasing *_Nullable)error {
+                      withTransform:(SCIXMLCompactingTransform *)transform
+                              error:(NSError *__autoreleasing *_Nullable)error {
 
-	NSAssert(NO, @"Unimplemented");
-	return nil;
+    NSAssert(NO, @"Unimplemented");
+    return nil;
 }
 
 + (NSDictionary *)canonicalizeDictionary:(NSDictionary *)compacted
-						   withTransform:(SCIXMLCanonicalizingTransform *)transform
-								   error:(NSError *__autoreleasing *_Nullable)error {
+                           withTransform:(SCIXMLCanonicalizingTransform *)transform
+                                   error:(NSError *__autoreleasing *_Nullable)error {
 
-	NSAssert(NO, @"Unimplemented");
-	return nil;
+    NSAssert(NO, @"Unimplemented");
+    return nil;
 }
 
 #pragma mark - Parsing/Deserialization from Strings
 
 + (NSDictionary *)canonicalDictionaryWithXMLString:(NSString *)xml
-											 error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-	NSData *data = [xml dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *data = [xml dataUsingEncoding:NSUTF8StringEncoding];
 
-	if (data == nil) {
-		if (error) {
-			*error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeNotUTF8Encoded];
-		}
-		return nil;
-	}
+    if (data == nil) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeNotUTF8Encoded];
+        }
+        return nil;
+    }
 
-	return [self canonicalDictionaryWithXMLData:data error:error];
+    return [self canonicalDictionaryWithXMLData:data error:error];
 }
 
 + (NSDictionary *)compactedDictionaryWithXMLString:(NSString *)xml
-							   compactingTransform:(SCIXMLCompactingTransform *)transform
-											 error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                               compactingTransform:(SCIXMLCompactingTransform *)transform
+                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-	NSAssert(NO, @"Unimplemented");
-	return nil;
+    NSAssert(NO, @"Unimplemented");
+    return nil;
 }
 
 #pragma mark - Parsing/Deserialization from Data
 
 + (NSDictionary *)canonicalDictionaryWithXMLData:(NSData *)xml
-										   error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                           error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-	if (error) {
-		*error = nil;
-	}
+    if (error) {
+        *error = nil;
+    }
 
-	xmlParserCtxt *parser = xmlNewParserCtxt();
+    xmlParserCtxt *parser = xmlNewParserCtxt();
 
-	if (parser == NULL) {
-		if (error) {
-			*error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeParserInit];
-		}
-		return nil;
-	}
+    if (parser == NULL) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeParserInit];
+        }
+        return nil;
+    }
 
-	xmlDoc *doc = xmlCtxtReadMemory(
-		parser,
-		xml.bytes,
-		xml.length,
-		"",
-		"UTF-8",
-		XML_PARSE_NOENT | XML_PARSE_NONET
-	);
+    xmlDoc *doc = xmlCtxtReadMemory(
+        parser,
+        xml.bytes,
+        xml.length,
+        "",
+        "UTF-8",
+        XML_PARSE_NOENT | XML_PARSE_NONET
+    );
 
-	xmlFreeParserCtxt(parser); // does not free 'doc'
+    xmlFreeParserCtxt(parser); // does not free 'doc'
 
-	if (doc == NULL) {
-		if (error) {
-			*error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedInput];
-		}
-		return nil;
-	}
+    if (doc == NULL) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedInput];
+        }
+        return nil;
+    }
 
-	xmlNode *root = xmlDocGetRootElement(doc);
-	NSDictionary *dict = [self dictionaryWithNode:root];
+    xmlNode *root = xmlDocGetRootElement(doc);
+    NSDictionary *dict = [self dictionaryWithNode:root];
 
-	xmlFreeDoc(doc);
+    xmlFreeDoc(doc);
 
-	return dict;
+    return dict;
 }
 
 + (NSDictionary *)compactedDictionaryWithXMLData:(NSString *)xml
-							 compactingTransform:(SCIXMLCompactingTransform *)transform
-										   error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                             compactingTransform:(SCIXMLCompactingTransform *)transform
+                                           error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-	NSAssert(NO, @"Unimplemented");
-	return nil;
+    NSAssert(NO, @"Unimplemented");
+    return nil;
 }
 
 #pragma mark - Generating/Serialization into Strings
 
 + (NSString *)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
-										 error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                         error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-	NSAssert(NO, @"Unimplemented");
-	return nil;
+    NSAssert(NO, @"Unimplemented");
+    return nil;
 }
 
 + (NSString *)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
-					   canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-										 error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                       canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
+                                         error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-	NSAssert(NO, @"Unimplemented");
-	return nil;
+    NSAssert(NO, @"Unimplemented");
+    return nil;
 }
 
 #pragma mark - Generating/Serialization into Binary Data
 
 + (NSData *)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
-									 error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-	NSAssert(NO, @"Unimplemented");
-	return nil;
+    NSAssert(NO, @"Unimplemented");
+    return nil;
 }
 
 + (NSData *)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
-				   canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-									 error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                   canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
+                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-	NSAssert(NO, @"Unimplemented");
-	return nil;
+    NSAssert(NO, @"Unimplemented");
+    return nil;
 }
 
 @end

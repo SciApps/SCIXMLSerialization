@@ -17,9 +17,9 @@ NSString *const SCIXMLErrorDomain = @"SCIXMLErrorDomain";
 @implementation NSError (SCIXMLSerialization)
 
 + (NSError *)SCIXMLErrorWithCode:(SCIXMLErrorCode)errorCode {
-	return [NSError errorWithDomain:SCIXMLErrorDomain
-														 code:errorCode
-												 userInfo:nil];
+    return [NSError errorWithDomain:SCIXMLErrorDomain
+                                                         code:errorCode
+                                                 userInfo:nil];
 }
 
 @end

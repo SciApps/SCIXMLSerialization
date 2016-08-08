@@ -19,7 +19,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-
 FOUNDATION_EXPORT NSString *const SCIXMLNodeKeyType;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeKeyName;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeKeyChildren;
@@ -35,38 +34,38 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeText;
 #pragma mark - Parsing/Deserialization from Strings
 
 + (NSDictionary *)canonicalDictionaryWithXMLString:(NSString *)xml
-											 error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 + (NSDictionary *)compactedDictionaryWithXMLString:(NSString *)xml
-							   compactingTransform:(SCIXMLCompactingTransform *)transform
-											 error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                               compactingTransform:(SCIXMLCompactingTransform *)transform
+                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 #pragma mark - Parsing/Deserialization from Binary Data
 
 + (NSDictionary *)canonicalDictionaryWithXMLData:(NSData *)xml
-										   error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                           error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 + (NSDictionary *)compactedDictionaryWithXMLData:(NSData *)xml
-							 compactingTransform:(SCIXMLCompactingTransform *)transform
-										   error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                             compactingTransform:(SCIXMLCompactingTransform *)transform
+                                           error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 #pragma mark - Generating/Serialization into Strings
 
 + (NSString *)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
-										 error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                         error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 + (NSString *)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
-					   canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-										 error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                       canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
+                                         error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 #pragma mark - Generating/Serialization into Binary Data
 
 + (NSData *)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
-									 error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 + (NSData *)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
-				   canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-									 error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                   canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
+                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 
 @end

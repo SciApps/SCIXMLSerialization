@@ -3,17 +3,17 @@
 
 int main(int argc, char *argv[])
 {
-	@autoreleasepool {
-		NSStringEncoding enc = 0;
-		NSString *xml = [NSString stringWithContentsOfFile:@(argv[1])
-											  usedEncoding:&enc
-													 error:NULL];
+    @autoreleasepool {
+        NSStringEncoding enc = 0;
+        NSString *xml = [NSString stringWithContentsOfFile:@(argv[1])
+                                              usedEncoding:&enc
+                                                     error:NULL];
 
-		NSDictionary *dict = [SCIXMLSerialization canonicalDictionaryWithXMLString:xml
-																			 error:NULL];
+        NSDictionary *dict = [SCIXMLSerialization canonicalDictionaryWithXMLString:xml
+                                                                             error:NULL];
 
-		NSLog(@"%@", dict);
-	}
+        NSLog(@"%@", dict);
+    }
 
-	return 0;
+    return 0;
 }

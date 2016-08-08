@@ -1,6 +1,6 @@
 # SCIXMLSerialization
-Converting XML documents to and from Trees of NSDictionary and NSArray.
+Converting XML documents to and from trees of NSDictionary and NSArray.
 
-The interface tends to be similar to apple's own NSJSONSerialization  API.
+The interface tends to be similar to apple's own `NSJSONSerialization` API.
 
-Currently in alpa stage.
+Currently in alpha stage.
