@@ -8,8 +8,11 @@
 // Copyright (C) SciApps.io, 2016.
 //
 
+#import <stdlib.h>
+
 #import <libxml/parser.h>
 #import <libxml/tree.h>
+#import <libxml/xmlmemory.h>
 
 #import "SCIXMLSerialization.h"
 
@@ -30,6 +33,15 @@ NSString *const SCIXMLNodeTypeEntityRef = @"entityref";
 NS_ASSUME_NONNULL_BEGIN
 @interface SCIXMLSerialization ()
 
++ (BOOL)libxmlUsesLibcAllocators;
+
++ (NSDictionary *_Nullable)dictionaryWithNode:(xmlNode *)node
+                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+
++ (xmlChar *_Nullable)bufferWithDictionary:(NSDictionary *)dictionary
+                                    length:(NSUInteger *)length
+                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+
 + (NSDictionary *_Nullable)compactDictionary:(NSDictionary *)canonical
                                withTransform:(SCIXMLCompactingTransform *)transform
                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error;
@@ -38,17 +50,24 @@ NS_ASSUME_NONNULL_BEGIN
                                     withTransform:(SCIXMLCanonicalizingTransform *)transform
                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
-+ (NSDictionary *_Nullable)dictionaryWithNode:(xmlNode *)node
-                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error;
-
-+ (xmlChar *_Nullable)xmlBufferWithDictionary:(NSDictionary *)dictionary
-                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error;
-
 @end
 NS_ASSUME_NONNULL_END
 
 
 @implementation SCIXMLSerialization
+
+#pragma mark - Memory management (internal)
+
++ (BOOL)libxmlUsesLibcAllocators {
+    xmlFreeFunc xmlFreeFuncPtr = NULL;
+    xmlMemGet(
+        &xmlFreeFuncPtr, // free
+        NULL,            // malloc,
+        NULL,            // realloc,
+        NULL             // strdup
+    );
+    return xmlFreeFuncPtr == &free;
+}
 
 #pragma mark - Parsing and Serialization Core (internal)
 
@@ -121,13 +140,17 @@ NS_ASSUME_NONNULL_END
     return dict;
 }
 
-+ (xmlChar *_Nullable)xmlBufferWithDictionary:(NSDictionary *)dictionary
-                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (xmlChar *_Nullable)bufferWithDictionary:(NSDictionary *)dictionary
+                                    length:(NSUInteger *)length
+                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
                                        format:@"method not implemented: %s", __PRETTY_FUNCTION__];
     }
+
+    *length = 0;
+
     return NULL;
 }
 
@@ -262,22 +285,58 @@ NS_ASSUME_NONNULL_END
 + (NSString *_Nullable)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
                                                   error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    NSString *string = nil;
+    NSUInteger length = 0;
+    xmlChar *buf = [self bufferWithDictionary:dictionary
+                                       length:&length
+                                        error:error];
+    if (buf == NULL) {
+        return nil;
     }
-    return nil;
+
+    // It is safe to have NSData free() the byte buffer
+    // as long as we know that xmlFree(ptr) is equivalent with free(ptr).
+    // In that case, as an optimization, we don't copy the output buffer.
+    // Otherwise, we make a copy of it and then xmlFree() it.
+    if (self.libxmlUsesLibcAllocators) {
+        string = [[NSString alloc] initWithBytesNoCopy:buf
+                                                length:length
+                                              encoding:NSUTF8StringEncoding
+                                          freeWhenDone:YES];
+
+        // if initialization fails, NSString doesn't free the buffer
+        if (string == nil) {
+            xmlFree(buf);
+        }
+    } else {
+        NSLog(@"*** %s: libxml uses custom allocators; copying output buffer!", __PRETTY_FUNCTION__);
+        string = [[NSString alloc] initWithBytes:buf
+                                          length:length
+                                        encoding:NSUTF8StringEncoding];
+        xmlFree(buf);
+    }
+
+    // Report error if necessary
+    if (string == nil && error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeNotUTF8Encoded];
+    }
+
+    return string;
 }
 
 + (NSString *_Nullable)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
                                 canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
                                                   error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
+                                                 withTransform:transform
+                                                         error:error];
+    if (canonicalDict == nil) {
+        return nil;
     }
-    return nil;
+
+    return [self xmlStringWithCanonicalDictionary:canonicalDict
+                                            error:error];
 }
 
 #pragma mark - Generating/Serialization into Binary Data
@@ -285,22 +344,43 @@ NS_ASSUME_NONNULL_END
 + (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
                                               error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    NSUInteger length = 0;
+    xmlChar *buf = [self bufferWithDictionary:dictionary
+                                       length:&length
+                                        error:error];
+    if (buf == NULL) {
+        return nil;
     }
-    return nil;
+
+    // It is safe to have NSData free() the byte buffer
+    // as long as we know that xmlFree(ptr) is equivalent with free(ptr).
+    // In that case, as an optimization, we don't copy the output buffer.
+    // Otherwise, we make a copy of it and then xmlFree() it.
+    if (self.libxmlUsesLibcAllocators) {
+        return [NSData dataWithBytesNoCopy:buf
+                                    length:length
+                              freeWhenDone:YES];
+    } else {
+        NSLog(@"*** %s: libxml uses custom allocators; copying output buffer!", __PRETTY_FUNCTION__);
+        NSData *data = [NSData dataWithBytes:buf length:length];
+        xmlFree(buf);
+        return data;
+    }
 }
 
 + (NSData *_Nullable)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
                             canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
                                               error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
+                                                 withTransform:transform
+                                                         error:error];
+    if (canonicalDict == nil) {
+        return nil;
     }
-    return nil;
+
+    return [self xmlDataWithCanonicalDictionary:canonicalDict
+                                          error:error];
 }
 
 @end
