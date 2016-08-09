@@ -5,6 +5,7 @@ all:
 		-O0 \
 		-DDEBUG \
 		-UNDEBUG \
+		-fobjc-arc \
 		-g \
 		-I$(shell xcrun -sdk macosx --show-sdk-path)/usr/include/libxml2 \
 		-lobjc \

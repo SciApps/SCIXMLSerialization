@@ -30,16 +30,19 @@ NSString *const SCIXMLNodeTypeEntityRef = @"entityref";
 NS_ASSUME_NONNULL_BEGIN
 @interface SCIXMLSerialization ()
 
-+ (NSDictionary *)compactDictionary:(NSDictionary *)canonical
-                      withTransform:(SCIXMLCompactingTransform *)transform
-                              error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSDictionary *_Nullable)compactDictionary:(NSDictionary *)canonical
+                               withTransform:(SCIXMLCompactingTransform *)transform
+                                       error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
-+ (NSDictionary *)canonicalizeDictionary:(NSDictionary *)compacted
-                           withTransform:(SCIXMLCanonicalizingTransform *)transform
-                                   error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSDictionary *_Nullable)canonicalizeDictionary:(NSDictionary *)compacted
+                                    withTransform:(SCIXMLCanonicalizingTransform *)transform
+                                            error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
-+ (NSDictionary *)dictionaryWithNode:(xmlNode *)node
-                               error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSDictionary *_Nullable)dictionaryWithNode:(xmlNode *)node
+                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+
++ (xmlChar *_Nullable)xmlBufferWithDictionary:(NSDictionary *)dictionary
+                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 @end
 NS_ASSUME_NONNULL_END
@@ -47,10 +50,10 @@ NS_ASSUME_NONNULL_END
 
 @implementation SCIXMLSerialization
 
-#pragma mark - Internal methods
+#pragma mark - Parsing and Serialization Core (internal)
 
-+ (NSDictionary *)dictionaryWithNode:(xmlNode *)node
-                               error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSDictionary *_Nullable)dictionaryWithNode:(xmlNode *)node
+                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     NSMutableDictionary *dict = [NSMutableDictionary new];
 
@@ -118,9 +121,21 @@ NS_ASSUME_NONNULL_END
     return dict;
 }
 
-+ (NSDictionary *)compactDictionary:(NSDictionary *)canonical
-                      withTransform:(SCIXMLCompactingTransform *)transform
-                              error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (xmlChar *_Nullable)xmlBufferWithDictionary:(NSDictionary *)dictionary
+                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
+    return NULL;
+}
+
+#pragma mark - Compaction and Canonicalization (internal methods)
+
++ (NSDictionary *_Nullable)compactDictionary:(NSDictionary *)canonical
+                               withTransform:(SCIXMLCompactingTransform *)transform
+                                       error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
@@ -129,9 +144,9 @@ NS_ASSUME_NONNULL_END
     return nil;
 }
 
-+ (NSDictionary *)canonicalizeDictionary:(NSDictionary *)compacted
-                           withTransform:(SCIXMLCanonicalizingTransform *)transform
-                                   error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSDictionary *_Nullable)canonicalizeDictionary:(NSDictionary *)compacted
+                                    withTransform:(SCIXMLCanonicalizingTransform *)transform
+                                            error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
@@ -142,8 +157,8 @@ NS_ASSUME_NONNULL_END
 
 #pragma mark - Parsing/Deserialization from Strings
 
-+ (NSDictionary *)canonicalDictionaryWithXMLString:(NSString *)xml
-                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSDictionary *_Nullable)canonicalDictionaryWithXMLString:(NSString *)xml
+                                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     NSData *data = [xml dataUsingEncoding:NSUTF8StringEncoding];
 
@@ -154,24 +169,32 @@ NS_ASSUME_NONNULL_END
         return nil;
     }
 
-    return [self canonicalDictionaryWithXMLData:data error:error];
+    return [self canonicalDictionaryWithXMLData:data
+                                          error:error];
 }
 
-+ (NSDictionary *)compactedDictionaryWithXMLString:(NSString *)xml
-                               compactingTransform:(SCIXMLCompactingTransform *)transform
-                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSDictionary *_Nullable)compactedDictionaryWithXMLString:(NSString *)xml
+                                        compactingTransform:(SCIXMLCompactingTransform *)transform
+                                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    NSData *data = [xml dataUsingEncoding:NSUTF8StringEncoding];
+
+    if (data == nil) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeNotUTF8Encoded];
+        }
+        return nil;
     }
-    return nil;
+
+    return [self compactedDictionaryWithXMLData:data
+                            compactingTransform:transform
+                                          error:error];
 }
 
 #pragma mark - Parsing/Deserialization from Data
 
-+ (NSDictionary *)canonicalDictionaryWithXMLData:(NSData *)xml
-                                           error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSDictionary *_Nullable)canonicalDictionaryWithXMLData:(NSData *)xml
+                                                    error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     if (error) {
         *error = nil;
@@ -218,21 +241,26 @@ NS_ASSUME_NONNULL_END
     return dict;
 }
 
-+ (NSDictionary *)compactedDictionaryWithXMLData:(NSString *)xml
-                             compactingTransform:(SCIXMLCompactingTransform *)transform
-                                           error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSDictionary *_Nullable)compactedDictionaryWithXMLData:(NSData *)xml
+                                      compactingTransform:(SCIXMLCompactingTransform *)transform
+                                                    error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    NSDictionary *canonicalDict = [self canonicalDictionaryWithXMLData:xml
+                                                                 error:error];
+
+    if (canonicalDict == nil) {
+        return nil;
     }
-    return nil;
+
+    return [self compactDictionary:canonicalDict
+                     withTransform:transform
+                             error:error];
 }
 
 #pragma mark - Generating/Serialization into Strings
 
-+ (NSString *)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
-                                         error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSString *_Nullable)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
+                                                  error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
@@ -241,9 +269,9 @@ NS_ASSUME_NONNULL_END
     return nil;
 }
 
-+ (NSString *)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
-                       canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-                                         error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSString *_Nullable)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
+                                canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
+                                                  error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
@@ -254,8 +282,8 @@ NS_ASSUME_NONNULL_END
 
 #pragma mark - Generating/Serialization into Binary Data
 
-+ (NSData *)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
-                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
+                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
@@ -264,9 +292,9 @@ NS_ASSUME_NONNULL_END
     return nil;
 }
 
-+ (NSData *)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
-                   canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error {
++ (NSData *_Nullable)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
+                            canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
+                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented

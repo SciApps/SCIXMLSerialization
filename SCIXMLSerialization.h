@@ -36,39 +36,39 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeEntityRef;
 
 #pragma mark - Parsing/Deserialization from Strings
 
-+ (NSDictionary *)canonicalDictionaryWithXMLString:(NSString *)xml
-                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSDictionary *_Nullable)canonicalDictionaryWithXMLString:(NSString *)xml
+                                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
-+ (NSDictionary *)compactedDictionaryWithXMLString:(NSString *)xml
-                               compactingTransform:(SCIXMLCompactingTransform *)transform
-                                             error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSDictionary *_Nullable)compactedDictionaryWithXMLString:(NSString *)xml
+                                        compactingTransform:(SCIXMLCompactingTransform *)transform
+                                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 #pragma mark - Parsing/Deserialization from Binary Data
 
-+ (NSDictionary *)canonicalDictionaryWithXMLData:(NSData *)xml
-                                           error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSDictionary *_Nullable)canonicalDictionaryWithXMLData:(NSData *)xml
+                                                    error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
-+ (NSDictionary *)compactedDictionaryWithXMLData:(NSData *)xml
-                             compactingTransform:(SCIXMLCompactingTransform *)transform
-                                           error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSDictionary *_Nullable)compactedDictionaryWithXMLData:(NSData *)xml
+                                      compactingTransform:(SCIXMLCompactingTransform *)transform
+                                                    error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 #pragma mark - Generating/Serialization into Strings
 
-+ (NSString *)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
-                                         error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSString *_Nullable)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
+                                                  error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
-+ (NSString *)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
-                       canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-                                         error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSString *_Nullable)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
+                                canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
+                                                  error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 #pragma mark - Generating/Serialization into Binary Data
 
-+ (NSData *)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
-                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
+                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
-+ (NSData *)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
-                   canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error;
++ (NSData *_Nullable)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
+                            canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
+                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 
 @end
