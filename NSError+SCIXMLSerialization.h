@@ -1,5 +1,5 @@
 //
-// SCIXMLError.h
+// NSError+SCIXMLSerialization.h
 // SCIXMLSerialization
 //
 // Created by Arpad Goretity

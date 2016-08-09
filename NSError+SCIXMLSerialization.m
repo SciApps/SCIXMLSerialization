@@ -1,5 +1,5 @@
 //
-// SCIXMLError.m
+// NSError+SCIXMLSerialization.m
 // SCIXMLSerialization
 //
 // Created by Arpad Goretity
@@ -8,7 +8,7 @@
 // Copyright (C) SciApps.io, 2016.
 //
 
-#import "SCIXMLError.h"
+#import "NSError+SCIXMLSerialization.h"
 
 #import <stdarg.h>
 

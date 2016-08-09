@@ -10,7 +10,7 @@
 
 #import <Foundation/Foundation.h>
 
-#import "SCIXMLError.h"
+#import "NSError+SCIXMLSerialization.h"
 
 
 @class SCIXMLCompactingTransform;
