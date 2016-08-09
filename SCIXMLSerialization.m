@@ -14,27 +14,30 @@
 #import "SCIXMLSerialization.h"
 
 
-NSString *const SCIXMLNodeKeyType = @"type";
-NSString *const SCIXMLNodeKeyName = @"name";
-NSString *const SCIXMLNodeKeyChildren = @"children";
+NSString *const SCIXMLNodeKeyType       = @"type";
+NSString *const SCIXMLNodeKeyName       = @"name";
+NSString *const SCIXMLNodeKeyChildren   = @"children";
 NSString *const SCIXMLNodeKeyAttributes = @"attributes";
-NSString *const SCIXMLNodeKeyText = @"text";
+NSString *const SCIXMLNodeKeyText       = @"text";
 
-NSString *const SCIXMLNodeTypeElement = @"element";
-NSString *const SCIXMLNodeTypeText = @"text";
+NSString *const SCIXMLNodeTypeElement   = @"element";
+NSString *const SCIXMLNodeTypeText      = @"text";
+NSString *const SCIXMLNodeTypeComment   = @"comment";
+NSString *const SCIXMLNodeTypeCDATA     = @"cdata";
 
 NS_ASSUME_NONNULL_BEGIN
 @interface SCIXMLSerialization ()
 
 + (NSDictionary *)compactDictionary:(NSDictionary *)canonical
                       withTransform:(SCIXMLCompactingTransform *)transform
-                              error:(NSError *__autoreleasing *_Nullable)error;
+                              error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 + (NSDictionary *)canonicalizeDictionary:(NSDictionary *)compacted
                            withTransform:(SCIXMLCanonicalizingTransform *)transform
-                                   error:(NSError *__autoreleasing *_Nullable)error;
+                                   error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
-+ (NSDictionary *)dictionaryWithNode:(xmlNode *)xNode;
++ (NSDictionary *)dictionaryWithNode:(xmlNode *)node
+                               error:(NSError *_Nullable __autoreleasing *_Nullable)error;
 
 @end
 NS_ASSUME_NONNULL_END
@@ -44,14 +47,16 @@ NS_ASSUME_NONNULL_END
 
 #pragma mark - Internal methods
 
-+ (NSDictionary *)dictionaryWithNode:(xmlNode *)node {
++ (NSDictionary *)dictionaryWithNode:(xmlNode *)node
+                               error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+
     NSMutableDictionary *dict = [NSMutableDictionary new];
 
     switch (node->type) {
     case XML_ELEMENT_NODE: {
-        dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeElement;
-        dict[SCIXMLNodeKeyName] = @((const char *)node->name);
-        dict[SCIXMLNodeKeyChildren] = [NSMutableArray new];
+        dict[SCIXMLNodeKeyType]       = SCIXMLNodeTypeElement;
+        dict[SCIXMLNodeKeyName]       = @((const char *)node->name);
+        dict[SCIXMLNodeKeyChildren]   = [NSMutableArray new];
         dict[SCIXMLNodeKeyAttributes] = [NSMutableDictionary new];
 
         // Collect attributes
@@ -63,7 +68,17 @@ NS_ASSUME_NONNULL_END
 
         // Collect children
         for (xmlNode *child = node->children; child != NULL; child = child->next) {
-            [dict[SCIXMLNodeKeyChildren] addObject:[self dictionaryWithNode:child]];
+            NSError *childError = nil;
+            NSDictionary *childDict = [self dictionaryWithNode:child error:&childError];
+
+            if (childError) {
+                if (error) {
+                    *error = childError;
+                }
+                return nil;
+            }
+
+            [dict[SCIXMLNodeKeyChildren] addObject:childDict];
         }
 
         break;
@@ -73,10 +88,24 @@ NS_ASSUME_NONNULL_END
         dict[SCIXMLNodeKeyText] = @((const char *)node->content);
         break;
     }
-    default:
-        // TODO(H2CO3): do something?
-        // Especially w.r.t. XML_CDATA_SECTION_NODE, XML_COMMENT_NODE, XML_DTD_NODE, etc.
+    case XML_COMMENT_NODE: {
+        dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeComment;
+        dict[SCIXMLNodeKeyText] = @((const char *)node->content);
         break;
+    }
+    case XML_CDATA_SECTION_NODE: {
+        dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeCDATA;
+        dict[SCIXMLNodeKeyText] = @((const char *)node->content);
+        break;
+    }
+    default:
+        // TODO(H2CO3): implement all node types (XML_*_NODE, enum xmlElementType)
+        // E.g.: Entities, DTDs, ...
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                           format:@"unhandled node type: %d", (int)node->type];
+        }
+        return nil;
     }
 
     return dict;
@@ -84,17 +113,23 @@ NS_ASSUME_NONNULL_END
 
 + (NSDictionary *)compactDictionary:(NSDictionary *)canonical
                       withTransform:(SCIXMLCompactingTransform *)transform
-                              error:(NSError *__autoreleasing *_Nullable)error {
+                              error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    NSAssert(NO, @"Unimplemented");
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
     return nil;
 }
 
 + (NSDictionary *)canonicalizeDictionary:(NSDictionary *)compacted
                            withTransform:(SCIXMLCanonicalizingTransform *)transform
-                                   error:(NSError *__autoreleasing *_Nullable)error {
+                                   error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    NSAssert(NO, @"Unimplemented");
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
     return nil;
 }
 
@@ -119,7 +154,10 @@ NS_ASSUME_NONNULL_END
                                compactingTransform:(SCIXMLCompactingTransform *)transform
                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    NSAssert(NO, @"Unimplemented");
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
     return nil;
 }
 
@@ -147,7 +185,7 @@ NS_ASSUME_NONNULL_END
         xml.length,
         "",
         "UTF-8",
-        XML_PARSE_NOENT | XML_PARSE_NONET
+        XML_PARSE_NOENT | XML_PARSE_NONET | XML_PARSE_NOBLANKS | XML_PARSE_HUGE
     );
 
     xmlFreeParserCtxt(parser); // does not free 'doc'
@@ -160,7 +198,7 @@ NS_ASSUME_NONNULL_END
     }
 
     xmlNode *root = xmlDocGetRootElement(doc);
-    NSDictionary *dict = [self dictionaryWithNode:root];
+    NSDictionary *dict = [self dictionaryWithNode:root error:error];
 
     xmlFreeDoc(doc);
 
@@ -171,7 +209,10 @@ NS_ASSUME_NONNULL_END
                              compactingTransform:(SCIXMLCompactingTransform *)transform
                                            error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    NSAssert(NO, @"Unimplemented");
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
     return nil;
 }
 
@@ -180,7 +221,10 @@ NS_ASSUME_NONNULL_END
 + (NSString *)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
                                          error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    NSAssert(NO, @"Unimplemented");
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
     return nil;
 }
 
@@ -188,7 +232,10 @@ NS_ASSUME_NONNULL_END
                        canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
                                          error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    NSAssert(NO, @"Unimplemented");
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
     return nil;
 }
 
@@ -197,7 +244,10 @@ NS_ASSUME_NONNULL_END
 + (NSData *)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    NSAssert(NO, @"Unimplemented");
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
     return nil;
 }
 
@@ -205,7 +255,10 @@ NS_ASSUME_NONNULL_END
                    canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error {
 
-    NSAssert(NO, @"Unimplemented");
+    if (error) {
+        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    }
     return nil;
 }
 

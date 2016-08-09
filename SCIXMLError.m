@@ -10,6 +10,7 @@
 
 #import "SCIXMLError.h"
 
+#import <stdarg.h>
 
 NSString *const SCIXMLErrorDomain = @"SCIXMLErrorDomain";
 
@@ -18,8 +19,23 @@ NSString *const SCIXMLErrorDomain = @"SCIXMLErrorDomain";
 
 + (NSError *)SCIXMLErrorWithCode:(SCIXMLErrorCode)errorCode {
     return [NSError errorWithDomain:SCIXMLErrorDomain
-                                                         code:errorCode
-                                                 userInfo:nil];
+                               code:errorCode
+                           userInfo:nil];
+}
+
++ (NSError *)SCIXMLErrorWithCode:(SCIXMLErrorCode)errorCode
+                          format:(NSString *)format, ... {
+
+    va_list args;
+    NSString *message;
+
+    va_start(args, format);
+    message = [[NSString alloc] initWithFormat:format arguments:args];
+    va_end(args);
+
+    return [NSError errorWithDomain:SCIXMLErrorDomain
+                               code:errorCode
+                           userInfo:@{ NSLocalizedDescriptionKey: message }];
 }
 
 @end

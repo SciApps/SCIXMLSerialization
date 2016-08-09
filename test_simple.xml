@@ -1,13 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE xml>
 <plist>
-  <dict>
-	<key>Foo</key>
-	<string>Bar</string>
-	<key qux="this is no valid PLIST!" lol="look at ma attribute">Key Two</key>
-	<array>
-	  <number>0</number>
-	  <number>1</number>
-	  <number>2</number>
-	</array>
-	<true />
-  </dict>
+	<dict>
+		<key>Foo</key>
+		<string>Bar</string>
+		<![CDATA[áéőóűüöÖŰŐÜÉÁÁÚÓÍí<><><><><>&gt;&aacute;LOL]]>
+		<key qux="this is no valid PLIST!" lol="look at ma attribute">Key Two</key>
+		<array>
+			<number>0</number>
+			<number>1</number>
+			<number>2</number>
+		</array>
+		<!-- this comment is redundant -->
+		<true/>
+	</dict>
 </plist>
