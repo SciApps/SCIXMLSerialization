@@ -24,6 +24,8 @@ NSString *const SCIXMLNodeTypeElement   = @"element";
 NSString *const SCIXMLNodeTypeText      = @"text";
 NSString *const SCIXMLNodeTypeComment   = @"comment";
 NSString *const SCIXMLNodeTypeCDATA     = @"cdata";
+NSString *const SCIXMLNodeTypeEntityRef = @"entityref";
+
 
 NS_ASSUME_NONNULL_BEGIN
 @interface SCIXMLSerialization ()
@@ -96,6 +98,11 @@ NS_ASSUME_NONNULL_END
     case XML_CDATA_SECTION_NODE: {
         dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeCDATA;
         dict[SCIXMLNodeKeyText] = @((const char *)node->content);
+        break;
+    }
+    case XML_ENTITY_REF_NODE: {
+        dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeEntityRef;
+        dict[SCIXMLNodeKeyName] = @((const char *)node->name);
         break;
     }
     default:
@@ -192,7 +199,13 @@ NS_ASSUME_NONNULL_END
 
     if (doc == NULL) {
         if (error) {
-            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedInput];
+            xmlError *rawErr = xmlCtxtGetLastError(parser);
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedInput
+                                           format:@"line %d char %d: error %d: %s",
+                                                  rawErr->line,
+                                                  rawErr->int2,
+                                                  rawErr->code,
+                                                  rawErr->message];
         }
         return nil;
     }

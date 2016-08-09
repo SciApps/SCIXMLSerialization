@@ -9,10 +9,11 @@ int main(int argc, char *argv[])
                                               usedEncoding:&enc
                                                      error:NULL];
 
+        NSError *error = nil;
         NSDictionary *dict = [SCIXMLSerialization canonicalDictionaryWithXMLString:xml
-                                                                             error:NULL];
+                                                                             error:&error];
 
-        NSLog(@"%@", dict);
+        NSLog(@"%@", dict ?: error);
     }
 
     return 0;

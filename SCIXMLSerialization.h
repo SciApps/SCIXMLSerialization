@@ -29,6 +29,7 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeElement;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeText;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeComment;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeCDATA;
+FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeEntityRef;
 
 
 @interface SCIXMLSerialization : NSObject

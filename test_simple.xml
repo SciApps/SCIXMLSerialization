@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<!DOCTYPE xml>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <plist>
 	<dict>
 		<key>Foo</key>
-		<string>Bar</string>
+		<string>Bar &aacute; Baz</string>
 		<![CDATA[áéőóűüöÖŰŐÜÉÁÁÚÓÍí<><><><><>&gt;&aacute;LOL]]>
 		<key qux="this is no valid PLIST!" lol="look at ma attribute">Key Two</key>
 		<array>
