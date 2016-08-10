@@ -38,4 +38,15 @@ NSString *const SCIXMLErrorDomain = @"SCIXMLErrorDomain";
                            userInfo:@{ NSLocalizedDescriptionKey: message }];
 }
 
++ (NSError *)SCIXMLErrorWithCode:(SCIXMLErrorCode)errorCode
+                        rawError:(xmlError *)rawError {
+
+    return [NSError SCIXMLErrorWithCode:errorCode
+                                 format:@"line %d char %d: error #%d: %s",
+                                        rawError->line,
+                                        rawError->int2,
+                                        rawError->code,
+                                        rawError->message];
+}
+
 @end

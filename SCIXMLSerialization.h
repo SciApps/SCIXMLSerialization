@@ -13,8 +13,8 @@
 #import "NSError+SCIXMLSerialization.h"
 
 
-@class SCIXMLCompactingTransform;
-@class SCIXMLCanonicalizingTransform;
+@protocol SCIXMLCompactingTransform;
+@protocol SCIXMLCanonicalizingTransform;
 
 
 NS_ASSUME_NONNULL_BEGIN
@@ -25,6 +25,9 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeKeyChildren;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeKeyAttributes;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeKeyText;
 
+// Implementation of methods should be provided for both parsing (reading)
+// and serializing (writing) individual nodes of types identified by the
+// following constants.
 FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeElement;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeText;
 FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeComment;
@@ -37,38 +40,38 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeEntityRef;
 #pragma mark - Parsing/Deserialization from Strings
 
 + (NSDictionary *_Nullable)canonicalDictionaryWithXMLString:(NSString *)xml
-                                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                                      error:(NSError *__autoreleasing *)error;
 
 + (NSDictionary *_Nullable)compactedDictionaryWithXMLString:(NSString *)xml
-                                        compactingTransform:(SCIXMLCompactingTransform *)transform
-                                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                        compactingTransform:(id <SCIXMLCompactingTransform>)transform
+                                                      error:(NSError *__autoreleasing *)error;
 
 #pragma mark - Parsing/Deserialization from Binary Data
 
 + (NSDictionary *_Nullable)canonicalDictionaryWithXMLData:(NSData *)xml
-                                                    error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                                    error:(NSError *__autoreleasing *)error;
 
 + (NSDictionary *_Nullable)compactedDictionaryWithXMLData:(NSData *)xml
-                                      compactingTransform:(SCIXMLCompactingTransform *)transform
-                                                    error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                      compactingTransform:(id <SCIXMLCompactingTransform>)transform
+                                                    error:(NSError *__autoreleasing *)error;
 
 #pragma mark - Generating/Serialization into Strings
 
 + (NSString *_Nullable)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
-                                                  error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                                  error:(NSError *__autoreleasing *)error;
 
 + (NSString *_Nullable)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
-                                canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-                                                  error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                                  error:(NSError *__autoreleasing *)error;
 
 #pragma mark - Generating/Serialization into Binary Data
 
 + (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
-                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                              error:(NSError *__autoreleasing *)error;
 
 + (NSData *_Nullable)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
-                            canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                            canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                              error:(NSError *__autoreleasing *)error;
 
 
 @end

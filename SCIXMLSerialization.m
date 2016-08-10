@@ -13,8 +13,19 @@
 #import <libxml/parser.h>
 #import <libxml/tree.h>
 #import <libxml/xmlmemory.h>
+#import <libxml/xmlwriter.h>
 
 #import "SCIXMLSerialization.h"
+
+// Make an NSString out of a const xlmChar *.
+#define NSXS(str) (@((const char *)(str)))
+
+// Make a const xmlChar * out of a const char *.
+#define XS(str) ((const xmlChar *)(str))
+
+// Get a property corresponding to a given key of a node dictionary.
+// Returns nil if the property is not of the specified type.
+#define GET_NODE_PROPERTY(getter, key, cls) ((cls *_Nullable)getter((key), cls.class))
 
 
 NSString *const SCIXMLNodeKeyType       = @"type";
@@ -36,19 +47,30 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)libxmlUsesLibcAllocators;
 
 + (NSDictionary *_Nullable)dictionaryWithNode:(xmlNode *)node
-                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                        error:(NSError *__autoreleasing *)error;
 
 + (xmlChar *_Nullable)bufferWithDictionary:(NSDictionary *)dictionary
                                     length:(NSUInteger *)length
-                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                     error:(NSError *__autoreleasing *)error;
+
++ (BOOL)writeXMLNode:(NSDictionary *)node
+              writer:(xmlTextWriter *)writer
+               error:(NSError *__autoreleasing *)error;
+
++ (id _Nullable (^)(NSString *, Class))propertyGetterWithNode:(NSDictionary *)node
+                                                        error:(NSError *__autoreleasing *)error;
+
++ (NSDictionary *)nodeWriters;
+
++ (NSDictionary *)unsafeLoadNodeWriters;
 
 + (NSDictionary *_Nullable)compactDictionary:(NSDictionary *)canonical
-                               withTransform:(SCIXMLCompactingTransform *)transform
-                                       error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                               withTransform:(id <SCIXMLCompactingTransform>)transform
+                                       error:(NSError *__autoreleasing *)error;
 
 + (NSDictionary *_Nullable)canonicalizeDictionary:(NSDictionary *)compacted
-                                    withTransform:(SCIXMLCanonicalizingTransform *)transform
-                                            error:(NSError *_Nullable __autoreleasing *_Nullable)error;
+                                    withTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                            error:(NSError *__autoreleasing *)error;
 
 @end
 NS_ASSUME_NONNULL_END
@@ -62,8 +84,8 @@ NS_ASSUME_NONNULL_END
     xmlFreeFunc xmlFreeFuncPtr = NULL;
     xmlMemGet(
         &xmlFreeFuncPtr, // free
-        NULL,            // malloc,
-        NULL,            // realloc,
+        NULL,            // malloc
+        NULL,            // realloc
         NULL             // strdup
     );
     return xmlFreeFuncPtr == &free;
@@ -72,21 +94,21 @@ NS_ASSUME_NONNULL_END
 #pragma mark - Parsing and Serialization Core (internal)
 
 + (NSDictionary *_Nullable)dictionaryWithNode:(xmlNode *)node
-                                        error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                        error:(NSError *__autoreleasing *)error {
 
     NSMutableDictionary *dict = [NSMutableDictionary new];
 
     switch (node->type) {
     case XML_ELEMENT_NODE: {
         dict[SCIXMLNodeKeyType]       = SCIXMLNodeTypeElement;
-        dict[SCIXMLNodeKeyName]       = @((const char *)node->name);
+        dict[SCIXMLNodeKeyName]       = NSXS(node->name);
         dict[SCIXMLNodeKeyChildren]   = [NSMutableArray new];
         dict[SCIXMLNodeKeyAttributes] = [NSMutableDictionary new];
 
         // Collect attributes
         for (xmlAttr *attr = node->properties; attr != NULL; attr = attr->next) {
             xmlChar *value = xmlGetProp(node, attr->name);
-            dict[SCIXMLNodeKeyAttributes][@((const char *)attr->name)] = @((const char *)value);
+            dict[SCIXMLNodeKeyAttributes][NSXS(attr->name)] = NSXS(value);
             xmlFree(value);
         }
 
@@ -109,22 +131,22 @@ NS_ASSUME_NONNULL_END
     }
     case XML_TEXT_NODE: {
         dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeText;
-        dict[SCIXMLNodeKeyText] = @((const char *)node->content);
+        dict[SCIXMLNodeKeyText] = NSXS(node->content);
         break;
     }
     case XML_COMMENT_NODE: {
         dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeComment;
-        dict[SCIXMLNodeKeyText] = @((const char *)node->content);
+        dict[SCIXMLNodeKeyText] = NSXS(node->content);
         break;
     }
     case XML_CDATA_SECTION_NODE: {
         dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeCDATA;
-        dict[SCIXMLNodeKeyText] = @((const char *)node->content);
+        dict[SCIXMLNodeKeyText] = NSXS(node->content);
         break;
     }
     case XML_ENTITY_REF_NODE: {
         dict[SCIXMLNodeKeyType] = SCIXMLNodeTypeEntityRef;
-        dict[SCIXMLNodeKeyName] = @((const char *)node->name);
+        dict[SCIXMLNodeKeyName] = NSXS(node->name);
         break;
     }
     default:
@@ -142,23 +164,177 @@ NS_ASSUME_NONNULL_END
 
 + (xmlChar *_Nullable)bufferWithDictionary:(NSDictionary *)dictionary
                                     length:(NSUInteger *)length
-                                     error:(NSError *_Nullable __autoreleasing *_Nullable)error {
-
-    if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
-    }
+                                     error:(NSError *__autoreleasing *)error {
 
     *length = 0;
+    if (error) {
+        *error = nil;
+    }
 
-    return NULL;
+    //
+    // Initialize buffer and writer
+    // (this is gonna be long)
+    //
+
+    xmlBuffer *buf = xmlBufferCreate();
+    if (buf == NULL) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit];
+        }
+        return NULL;
+    }
+
+    xmlTextWriter *writer = xmlNewTextWriterMemory(buf, NO);
+    if (writer == NULL) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit];
+        }
+        xmlBufferFree(buf);
+        return NULL;
+    }
+
+    if (xmlTextWriterStartDocument(writer, NULL, "UTF-8", NULL) < 0) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit];
+        }
+        xmlFreeTextWriter(writer);
+        xmlBufferFree(buf);
+        return NULL;
+    }
+
+    // Try writing root element.
+    // Move content out of buffer upon success.
+    xmlChar *content = NULL;
+
+    if ([self writeXMLNode:dictionary writer:writer error:error]) {
+        if (xmlTextWriterEndDocument(writer) >= 0) {
+            *length = xmlBufferLength(buf);
+            content = xmlBufferDetach(buf);
+        } else if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
+                                           format:@"error writing XML for node %p", (void *)dictionary];
+        }
+    }
+
+    // Clean up writer state
+    xmlFreeTextWriter(writer);
+    xmlBufferFree(buf);
+
+    return content;
+}
+
++ (BOOL)writeXMLNode:(NSDictionary *)node
+              writer:(xmlTextWriter *)writer
+               error:(NSError *__autoreleasing *)error {
+
+    id (^getter)(NSString *, Class) = [self propertyGetterWithNode:node error:error];
+
+    NSString *nodeType = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyType, NSString);
+    if (nodeType == nil) {
+        return NO;
+    }
+
+    BOOL (^nodeWriter)(
+        NSDictionary *,
+        xmlTextWriter *,
+        NSError *__autoreleasing *
+    );
+
+    nodeWriter = self.nodeWriters[nodeType];
+    if (nodeWriter == nil) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                           format:@"unhandled node type: %@", nodeType];
+        }
+        return NO;
+    }
+
+    return nodeWriter(node, writer, error);
+}
+
++ (id _Nullable (^)(NSString *, Class))propertyGetterWithNode:(NSDictionary *)node
+                                                        error:(NSError *__autoreleasing *)error {
+
+    // This function attempts to retrieve a value from the node dictionary,
+    // then checks if it is of the specified type/class.
+    // If the key does not exist or the value is of the wrong type, it
+    // sets the error and returns nil. Otherwise, it returns the value.
+    return ^id _Nullable(NSString *key, Class cls) {
+        id value = node[key];
+
+        if ([value isKindOfClass:cls] == NO) {
+            value = nil;
+        }
+
+        if (value == nil && error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                           format:@"node %p has no value for key '%@' of type %@",
+                                                  (void *)node,
+                                                  key,
+                                                  NSStringFromClass(cls)];
+        }
+
+        return value;
+    };
+}
+
++ (NSDictionary *)nodeWriters {
+    static NSDictionary *dict = nil;
+
+    static dispatch_once_t token;
+    dispatch_once(&token, ^{
+        dict = [self unsafeLoadNodeWriters];
+    });
+
+    return dict;
+}
+
++ (NSDictionary *)unsafeLoadNodeWriters {
+    return @{
+        SCIXMLNodeTypeElement: ^BOOL(
+            NSDictionary *node,
+            xmlTextWriter *writer,
+            NSError *__autoreleasing *error
+        ) {
+            return NO;
+        },
+        SCIXMLNodeTypeText: ^(NSDictionary *node, xmlTextWriter *writer, NSError *__autoreleasing *error) {
+            id _Nullable (^getter)(NSString *, Class) = [self propertyGetterWithNode:node error:error];
+
+            NSString *name = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyName, NSString);
+            if (name == nil) {
+                return NO;
+            }
+
+            NSString *text = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyText, NSString);
+            if (text == nil) {
+                return NO;
+            }
+
+            if (xmlTextWriterWriteElement(writer, XS(name.UTF8String), XS(text.UTF8String)) < 0) {
+                if (error) {
+                    *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
+                                                   format:@"error writing XML for node %p", (void *)node];
+                }
+                return NO;
+            }
+
+            return YES;
+        },
+        SCIXMLNodeTypeComment: ^{
+        },
+        SCIXMLNodeTypeCDATA: ^{
+        },
+        SCIXMLNodeTypeEntityRef: ^{
+        },
+    };
 }
 
 #pragma mark - Compaction and Canonicalization (internal methods)
 
 + (NSDictionary *_Nullable)compactDictionary:(NSDictionary *)canonical
-                               withTransform:(SCIXMLCompactingTransform *)transform
-                                       error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                               withTransform:(id <SCIXMLCompactingTransform>)transform
+                                       error:(NSError *__autoreleasing *)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
@@ -168,8 +344,8 @@ NS_ASSUME_NONNULL_END
 }
 
 + (NSDictionary *_Nullable)canonicalizeDictionary:(NSDictionary *)compacted
-                                    withTransform:(SCIXMLCanonicalizingTransform *)transform
-                                            error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                    withTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                            error:(NSError *__autoreleasing *)error {
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
@@ -181,7 +357,7 @@ NS_ASSUME_NONNULL_END
 #pragma mark - Parsing/Deserialization from Strings
 
 + (NSDictionary *_Nullable)canonicalDictionaryWithXMLString:(NSString *)xml
-                                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                                      error:(NSError *__autoreleasing *)error {
 
     NSData *data = [xml dataUsingEncoding:NSUTF8StringEncoding];
 
@@ -197,8 +373,8 @@ NS_ASSUME_NONNULL_END
 }
 
 + (NSDictionary *_Nullable)compactedDictionaryWithXMLString:(NSString *)xml
-                                        compactingTransform:(SCIXMLCompactingTransform *)transform
-                                                      error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                        compactingTransform:(id <SCIXMLCompactingTransform>)transform
+                                                      error:(NSError *__autoreleasing *)error {
 
     NSData *data = [xml dataUsingEncoding:NSUTF8StringEncoding];
 
@@ -217,7 +393,7 @@ NS_ASSUME_NONNULL_END
 #pragma mark - Parsing/Deserialization from Data
 
 + (NSDictionary *_Nullable)canonicalDictionaryWithXMLData:(NSData *)xml
-                                                    error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                                    error:(NSError *__autoreleasing *)error {
 
     if (error) {
         *error = nil;
@@ -245,13 +421,8 @@ NS_ASSUME_NONNULL_END
 
     if (doc == NULL) {
         if (error) {
-            xmlError *rawErr = xmlCtxtGetLastError(parser);
-            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedInput
-                                           format:@"line %d char %d: error %d: %s",
-                                                  rawErr->line,
-                                                  rawErr->int2,
-                                                  rawErr->code,
-                                                  rawErr->message];
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedXML
+                                         rawError:xmlCtxtGetLastError(parser)];
         }
         return nil;
     }
@@ -265,8 +436,8 @@ NS_ASSUME_NONNULL_END
 }
 
 + (NSDictionary *_Nullable)compactedDictionaryWithXMLData:(NSData *)xml
-                                      compactingTransform:(SCIXMLCompactingTransform *)transform
-                                                    error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                      compactingTransform:(id <SCIXMLCompactingTransform>)transform
+                                                    error:(NSError *__autoreleasing *)error {
 
     NSDictionary *canonicalDict = [self canonicalDictionaryWithXMLData:xml
                                                                  error:error];
@@ -283,7 +454,7 @@ NS_ASSUME_NONNULL_END
 #pragma mark - Generating/Serialization into Strings
 
 + (NSString *_Nullable)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
-                                                  error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                                  error:(NSError *__autoreleasing *)error {
 
     NSString *string = nil;
     NSUInteger length = 0;
@@ -325,8 +496,8 @@ NS_ASSUME_NONNULL_END
 }
 
 + (NSString *_Nullable)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
-                                canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-                                                  error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                                  error:(NSError *__autoreleasing *)error {
 
     NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
                                                  withTransform:transform
@@ -342,7 +513,7 @@ NS_ASSUME_NONNULL_END
 #pragma mark - Generating/Serialization into Binary Data
 
 + (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
-                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                                              error:(NSError *__autoreleasing *)error {
 
     NSUInteger length = 0;
     xmlChar *buf = [self bufferWithDictionary:dictionary
@@ -369,8 +540,8 @@ NS_ASSUME_NONNULL_END
 }
 
 + (NSData *_Nullable)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
-                            canonicalizingTransform:(SCIXMLCanonicalizingTransform *)transform
-                                              error:(NSError *_Nullable __autoreleasing *_Nullable)error {
+                            canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                              error:(NSError *__autoreleasing *)error {
 
     NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
                                                  withTransform:transform
