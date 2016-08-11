@@ -117,13 +117,9 @@ NS_ASSUME_NONNULL_END
 
         // Collect children
         for (xmlNode *child = node->children; child != NULL; child = child->next) {
-            NSError *childError = nil;
-            NSDictionary *childDict = [self dictionaryWithNode:child error:&childError];
+            NSDictionary *childDict = [self dictionaryWithNode:child error:error];
 
-            if (childError) {
-                if (error) {
-                    *error = childError;
-                }
+            if (childDict == nil) {
                 return nil;
             }
 
