@@ -50,6 +50,7 @@ NS_ASSUME_NONNULL_BEGIN
                                         error:(NSError *__autoreleasing *)error;
 
 + (xmlChar *_Nullable)bufferWithDictionary:(NSDictionary *)dictionary
+                               indentation:(NSString *_Nullable)indentation
                                     length:(NSUInteger *)length
                                      error:(NSError *__autoreleasing *)error;
 
@@ -63,6 +64,8 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSDictionary *)nodeWriters;
 
 + (NSDictionary *)unsafeLoadNodeWriters;
+
++ (BOOL (^)(NSDictionary *, xmlTextWriter *, NSError *__autoreleasing *))nodeWriterWithFunction:(int (*)(xmlTextWriter *, const xmlChar *))writerFunction;
 
 + (NSDictionary *_Nullable)compactDictionary:(NSDictionary *)canonical
                                withTransform:(id <SCIXMLCompactingTransform>)transform
@@ -163,6 +166,7 @@ NS_ASSUME_NONNULL_END
 }
 
 + (xmlChar *_Nullable)bufferWithDictionary:(NSDictionary *)dictionary
+                               indentation:(NSString *_Nullable)indentation
                                     length:(NSUInteger *)length
                                      error:(NSError *__autoreleasing *)error {
 
@@ -179,7 +183,8 @@ NS_ASSUME_NONNULL_END
     xmlBuffer *buf = xmlBufferCreate();
     if (buf == NULL) {
         if (error) {
-            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit];
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit
+                                           format:@"could not allocate buffer"];
         }
         return NULL;
     }
@@ -187,15 +192,35 @@ NS_ASSUME_NONNULL_END
     xmlTextWriter *writer = xmlNewTextWriterMemory(buf, NO);
     if (writer == NULL) {
         if (error) {
-            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit];
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit
+                                           format:@"could not allocate writer"];
         }
+        xmlBufferFree(buf);
+        return NULL;
+    }
+
+    if (
+        indentation
+        &&
+        (
+            xmlTextWriterSetIndent(writer, 1) < 0
+            ||
+            xmlTextWriterSetIndentString(writer, XS(indentation.UTF8String)) < 0
+        )
+    ) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit
+                                           format:@"could not set indentation"];
+        }
+        xmlFreeTextWriter(writer);
         xmlBufferFree(buf);
         return NULL;
     }
 
     if (xmlTextWriterStartDocument(writer, NULL, "UTF-8", NULL) < 0) {
         if (error) {
-            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit];
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriterInit
+                                           format:@"could not start writing document"];
         }
         xmlFreeTextWriter(writer);
         xmlBufferFree(buf);
@@ -291,14 +316,7 @@ NS_ASSUME_NONNULL_END
 
 + (NSDictionary *)unsafeLoadNodeWriters {
     return @{
-        SCIXMLNodeTypeElement: ^BOOL(
-            NSDictionary *node,
-            xmlTextWriter *writer,
-            NSError *__autoreleasing *error
-        ) {
-            return NO;
-        },
-        SCIXMLNodeTypeText: ^(NSDictionary *node, xmlTextWriter *writer, NSError *__autoreleasing *error) {
+        SCIXMLNodeTypeElement: ^BOOL(NSDictionary *node, xmlTextWriter *writer, NSError *__autoreleasing *error) {
             id _Nullable (^getter)(NSString *, Class) = [self propertyGetterWithNode:node error:error];
 
             NSString *name = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyName, NSString);
@@ -306,27 +324,124 @@ NS_ASSUME_NONNULL_END
                 return NO;
             }
 
-            NSString *text = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyText, NSString);
-            if (text == nil) {
+            NSArray *children = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyChildren, NSArray);
+            if (children == nil) {
                 return NO;
             }
 
-            if (xmlTextWriterWriteElement(writer, XS(name.UTF8String), XS(text.UTF8String)) < 0) {
+            NSDictionary *attributes = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyAttributes, NSDictionary);
+            if (attributes == nil) {
+                return NO;
+            }
+
+            // Write <opening> tag
+            if (xmlTextWriterStartElement(writer, XS(name.UTF8String)) < 0) {
                 if (error) {
                     *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
-                                                   format:@"error writing XML for node %p", (void *)node];
+                                                   format:@"could not start element <%@>", name];
+                }
+                return NO;
+            }
+
+            // Write attributes
+            for (NSString *attrName in attributes) {
+                NSString *attrValue = attributes[attrName];
+
+                // Both keys and values _must_ be strings!
+                if ([attrName isKindOfClass:NSString.class] && [attrValue isKindOfClass:NSString.class]) {
+                    if (xmlTextWriterWriteAttribute(writer, XS(attrName.UTF8String), XS(attrValue.UTF8String)) < 0) {
+                        if (error) {
+                            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
+                                                           format:@"could not write attribute '%@'", attrName];
+                        }
+                        return NO;
+                    }
+                } else {
+                    if (error) {
+                        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"attribute name or value was not a string"];
+                    }
+                    return NO;
+                }
+            }
+
+            // Write children recursively
+            for (NSDictionary *child in children) {
+                if ([child isKindOfClass:NSDictionary.class]) {
+                    if ([self writeXMLNode:child writer:writer error:error] == NO) {
+                        return NO;
+                    }
+                } else {
+                    if (error) {
+                        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"child node was not a dictionary"];
+                    }
+                    return NO;
+                }
+            }
+
+            // Write </closing> tag
+            if (xmlTextWriterEndElement(writer) < 0) {
+                if (error) {
+                    *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
+                                                   format:@"could not end element </%@>", name];
                 }
                 return NO;
             }
 
             return YES;
         },
-        SCIXMLNodeTypeComment: ^{
+
+        SCIXMLNodeTypeText:    [self nodeWriterWithFunction:xmlTextWriterWriteString],
+        SCIXMLNodeTypeComment: [self nodeWriterWithFunction:xmlTextWriterWriteComment],
+        SCIXMLNodeTypeCDATA:   [self nodeWriterWithFunction:xmlTextWriterWriteCDATA],
+
+        SCIXMLNodeTypeEntityRef: ^BOOL(NSDictionary *node, xmlTextWriter *writer, NSError *__autoreleasing *error) {
+            id _Nullable (^getter)(NSString *, Class) = [self propertyGetterWithNode:node error:error];
+
+            NSString *name = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyName, NSString);
+            if (name == nil) {
+                return NO;
+            }
+
+            if (xmlTextWriterWriteFormatRaw(writer, "&%s;", name.UTF8String) < 0) {
+                if (error) {
+                    *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
+                                                   format:@"error writing entity '&%@;' for node %p",
+                                                          name,
+                                                          (void *)node];
+                }
+                return NO;
+            }
+
+            return YES;
         },
-        SCIXMLNodeTypeCDATA: ^{
-        },
-        SCIXMLNodeTypeEntityRef: ^{
-        },
+    };
+}
+
+// Return a block that writes a simple, text-content-only node,
+// e.g. text nodes, comment nodes and CDATA section nodes.
++ (BOOL (^)(NSDictionary *, xmlTextWriter *, NSError *__autoreleasing *))nodeWriterWithFunction:(int (*)(xmlTextWriter *, const xmlChar *))writerFunction {
+
+    return ^BOOL(NSDictionary *node, xmlTextWriter *writer, NSError *__autoreleasing *error) {
+        id _Nullable (^getter)(NSString *, Class) = [self propertyGetterWithNode:node error:error];
+
+        NSString *text = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyText, NSString);
+        if (text == nil) {
+            return NO;
+        }
+
+        if (writerFunction(writer, XS(text.UTF8String)) < 0) {
+            if (error) {
+                *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
+                                               format:@"error writing XML for node %p of type %@",
+                                                      (void *)node,
+                                                      node[SCIXMLNodeKeyType]];
+            }
+            return NO;
+        }
+
+        return YES;
     };
 }
 
@@ -454,11 +569,13 @@ NS_ASSUME_NONNULL_END
 #pragma mark - Generating/Serialization into Strings
 
 + (NSString *_Nullable)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
+                                            indentation:(NSString *_Nullable)indentation
                                                   error:(NSError *__autoreleasing *)error {
 
     NSString *string = nil;
     NSUInteger length = 0;
     xmlChar *buf = [self bufferWithDictionary:dictionary
+                                  indentation:indentation
                                        length:&length
                                         error:error];
     if (buf == NULL) {
@@ -497,6 +614,7 @@ NS_ASSUME_NONNULL_END
 
 + (NSString *_Nullable)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
                                 canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                            indentation:(NSString *_Nullable)indentation
                                                   error:(NSError *__autoreleasing *)error {
 
     NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
@@ -507,16 +625,19 @@ NS_ASSUME_NONNULL_END
     }
 
     return [self xmlStringWithCanonicalDictionary:canonicalDict
+                                      indentation:indentation
                                             error:error];
 }
 
 #pragma mark - Generating/Serialization into Binary Data
 
 + (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
+                                        indentation:(NSString *_Nullable)indentation
                                               error:(NSError *__autoreleasing *)error {
 
     NSUInteger length = 0;
     xmlChar *buf = [self bufferWithDictionary:dictionary
+                                  indentation:indentation
                                        length:&length
                                         error:error];
     if (buf == NULL) {
@@ -541,6 +662,7 @@ NS_ASSUME_NONNULL_END
 
 + (NSData *_Nullable)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
                             canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                        indentation:(NSString *_Nullable)indentation
                                               error:(NSError *__autoreleasing *)error {
 
     NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
@@ -551,6 +673,7 @@ NS_ASSUME_NONNULL_END
     }
 
     return [self xmlDataWithCanonicalDictionary:canonicalDict
+                                    indentation:indentation
                                           error:error];
 }
 

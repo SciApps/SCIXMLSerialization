@@ -11,9 +11,9 @@ all:
 		-lobjc \
 		-lxml2 \
 		-framework Foundation \
-		-o main \
+		-o test \
 		*.m
 
 clean:
-	rm -f main *.o
+	rm -f main test *.o
 	rm -rf *.dSYM
