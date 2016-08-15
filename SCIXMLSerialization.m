@@ -99,6 +99,8 @@ NS_ASSUME_NONNULL_END
 + (NSDictionary *_Nullable)dictionaryWithNode:(xmlNode *)node
                                         error:(NSError *__autoreleasing *)error {
 
+    NSParameterAssert(node);
+
     NSMutableDictionary *dict = [NSMutableDictionary new];
 
     switch (node->type) {
@@ -165,6 +167,9 @@ NS_ASSUME_NONNULL_END
                                indentation:(NSString *_Nullable)indentation
                                     length:(NSUInteger *)length
                                      error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(dictionary);
+    NSParameterAssert(length);
 
     *length = 0;
     if (error) {
@@ -248,6 +253,9 @@ NS_ASSUME_NONNULL_END
               writer:(xmlTextWriter *)writer
                error:(NSError *__autoreleasing *)error {
 
+    NSParameterAssert(node);
+    NSParameterAssert(writer);
+
     id (^getter)(NSString *, Class) = [self propertyGetterWithNode:node error:error];
 
     NSString *nodeType = GET_NODE_PROPERTY(getter, SCIXMLNodeKeyType, NSString);
@@ -276,6 +284,8 @@ NS_ASSUME_NONNULL_END
 + (id _Nullable (^)(NSString *, Class))propertyGetterWithNode:(NSDictionary *)node
                                                         error:(NSError *__autoreleasing *)error {
 
+    NSParameterAssert(node);
+
     // This function attempts to retrieve a value from the node dictionary,
     // then checks if it is of the specified type/class.
     // If the key does not exist or the value is of the wrong type, it
@@ -301,8 +311,8 @@ NS_ASSUME_NONNULL_END
 
 + (NSDictionary *)nodeWriters {
     static NSDictionary *dict = nil;
-
     static dispatch_once_t token;
+
     dispatch_once(&token, ^{
         dict = [self unsafeLoadNodeWriters];
     });
@@ -419,6 +429,8 @@ NS_ASSUME_NONNULL_END
 // e.g. text nodes, comment nodes and CDATA section nodes.
 + (BOOL (^)(NSDictionary *, xmlTextWriter *, NSError *__autoreleasing *))nodeWriterWithFunction:(int (*)(xmlTextWriter *, const xmlChar *))writerFunction {
 
+    NSParameterAssert(writerFunction);
+
     return ^BOOL(NSDictionary *node, xmlTextWriter *writer, NSError *__autoreleasing *error) {
         id _Nullable (^getter)(NSString *, Class) = [self propertyGetterWithNode:node error:error];
 
@@ -447,16 +459,74 @@ NS_ASSUME_NONNULL_END
                                withTransform:(id <SCIXMLCompactingTransform>)transform
                                        error:(NSError *__autoreleasing *)error {
 
-    if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+    NSParameterAssert(canonical);
+    NSParameterAssert(transform);
+
+    // We know that the canonical dictionary is mutable; we use this knowledge
+    // to optimize the traversal by eliminating unnecessary memory allocations.
+    assert([canonical isKindOfClass:NSMutableDictionary.class]);
+    NSMutableDictionary *node = (NSMutableDictionary *)canonical;
+
+    // Perform a bottom-up traversal of the node tree.
+    // The reason for the bottom-up traversal is that this way, the structure
+    // of the 'remaining' tree (the part above the node currently being processed)
+    // is guaranteed to remain canonical, since the transform has no choice of
+    // modifying it (for obvious temporal reasons).
+    NSMutableArray *children = node[SCIXMLNodeKeyChildren];
+    assert(children && [children isKindOfClass:NSMutableArray.class]);
+
+    // So, we recurse _first_, ...
+    for (NSUInteger i = 0; i < children.count; i++) {
+        NSDictionary *transformedChild = [self compactDictionary:children[i]
+                                                   withTransform:transform
+                                                           error:error];
+        if (transformedChild == nil) {
+            return nil;
+        }
+
+        children[i] = transformedChild;
     }
-    return nil;
+
+    // ...and the actual application of individual transforms comes only after that.
+
+    // Every node has a type, ...
+    if (transform.typeTransform) {
+        node[SCIXMLNodeKeyType] = transform.typeTransform(node[SCIXMLNodeKeyType]);
+    }
+
+    // ...But not all of them have a name...
+    if (node[SCIXMLNodeKeyName] && transform.nameTransform) {
+        node[SCIXMLNodeKeyName] = transform.nameTransform(node[SCIXMLNodeKeyName]);
+    }
+
+    // ...or text contents.
+    if (node[SCIXMLNodeKeyText] && transform.textTransform) {
+        node[SCIXMLNodeKeyText] = transform.textTransform(node[SCIXMLNodeKeyText]);
+    }
+
+    // But in canonical form, they all have an attribute dictionary.
+    if (transform.attributeTransform) {
+        NSMutableDictionary *attributes = node[SCIXMLNodeKeyAttributes];
+        assert(attributes && [attributes isKindOfClass:NSMutableDictionary.class]);
+
+        NSArray *attributeNames = attributes.allKeys;
+        for (NSString *attrName in attributeNames) {
+            attributes[attrName] = transform.attributeTransform(attributes[attrName]);
+        }
+    }
+
+    // Finally, when all transformations on the individual parts of the node
+    // have been performed, we give the transform a last opportunity to make
+    // the node even more meaningful and concise...
+    return transform.nodeTransform ? transform.nodeTransform(node) : node;
 }
 
 + (NSDictionary *_Nullable)canonicalizeDictionary:(NSDictionary *)compacted
                                     withTransform:(id <SCIXMLCanonicalizingTransform>)transform
                                             error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(compacted);
+    NSParameterAssert(transform);
 
     if (error) {
         *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
@@ -469,6 +539,8 @@ NS_ASSUME_NONNULL_END
 
 + (NSDictionary *_Nullable)canonicalDictionaryWithXMLString:(NSString *)xml
                                                       error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(xml);
 
     NSData *data = [xml dataUsingEncoding:NSUTF8StringEncoding];
 
@@ -486,6 +558,9 @@ NS_ASSUME_NONNULL_END
 + (NSDictionary *_Nullable)compactedDictionaryWithXMLString:(NSString *)xml
                                         compactingTransform:(id <SCIXMLCompactingTransform>)transform
                                                       error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(xml);
+    NSParameterAssert(transform);
 
     NSData *data = [xml dataUsingEncoding:NSUTF8StringEncoding];
 
@@ -505,6 +580,8 @@ NS_ASSUME_NONNULL_END
 
 + (NSDictionary *_Nullable)canonicalDictionaryWithXMLData:(NSData *)xml
                                                     error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(xml);
 
     if (error) {
         *error = nil;
@@ -550,6 +627,9 @@ NS_ASSUME_NONNULL_END
                                       compactingTransform:(id <SCIXMLCompactingTransform>)transform
                                                     error:(NSError *__autoreleasing *)error {
 
+    NSParameterAssert(xml);
+    NSParameterAssert(transform);
+
     NSDictionary *canonicalDict = [self canonicalDictionaryWithXMLData:xml
                                                                  error:error];
 
@@ -567,6 +647,8 @@ NS_ASSUME_NONNULL_END
 + (NSString *_Nullable)xmlStringWithCanonicalDictionary:(NSDictionary *)dictionary
                                             indentation:(NSString *_Nullable)indentation
                                                   error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(dictionary);
 
     NSString *string = nil;
     NSUInteger length = 0;
@@ -613,6 +695,9 @@ NS_ASSUME_NONNULL_END
                                             indentation:(NSString *_Nullable)indentation
                                                   error:(NSError *__autoreleasing *)error {
 
+    NSParameterAssert(dictionary);
+    NSParameterAssert(transform);
+
     NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
                                                  withTransform:transform
                                                          error:error];
@@ -630,6 +715,8 @@ NS_ASSUME_NONNULL_END
 + (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
                                         indentation:(NSString *_Nullable)indentation
                                               error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(dictionary);
 
     NSUInteger length = 0;
     xmlChar *buf = [self bufferWithDictionary:dictionary
@@ -660,6 +747,9 @@ NS_ASSUME_NONNULL_END
                             canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
                                         indentation:(NSString *_Nullable)indentation
                                               error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(dictionary);
+    NSParameterAssert(transform);
 
     NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
                                                  withTransform:transform

@@ -11,10 +11,8 @@
 #import <Foundation/Foundation.h>
 
 #import "NSError+SCIXMLSerialization.h"
-
-
-@protocol SCIXMLCompactingTransform;
-@protocol SCIXMLCanonicalizingTransform;
+#import "SCIXMLCompactingTransform.h"
+#import "SCIXMLCanonicalizingTransform.h"
 
 
 NS_ASSUME_NONNULL_BEGIN
