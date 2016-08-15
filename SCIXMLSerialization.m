@@ -491,17 +491,44 @@ NS_ASSUME_NONNULL_END
 
     // Every node has a type, ...
     if (transform.typeTransform) {
-        node[SCIXMLNodeKeyType] = transform.typeTransform(node[SCIXMLNodeKeyType]);
+        id value = transform.typeTransform(node[SCIXMLNodeKeyType]);
+
+        if ([value isKindOfClass:NSError.class]) {
+            if (error) {
+                *error = value;
+            }
+            return nil;
+        }
+
+        node[SCIXMLNodeKeyType] = value;
     }
 
     // ...But not all of them have a name...
     if (node[SCIXMLNodeKeyName] && transform.nameTransform) {
-        node[SCIXMLNodeKeyName] = transform.nameTransform(node[SCIXMLNodeKeyName]);
+        id value = transform.nameTransform(node[SCIXMLNodeKeyName]);
+
+        if ([value isKindOfClass:NSError.class]) {
+            if (error) {
+                *error = value;
+            }
+            return nil;
+        }
+
+        node[SCIXMLNodeKeyName] = value;
     }
 
     // ...or text contents.
     if (node[SCIXMLNodeKeyText] && transform.textTransform) {
-        node[SCIXMLNodeKeyText] = transform.textTransform(node[SCIXMLNodeKeyText]);
+        id value = transform.textTransform(node[SCIXMLNodeKeyText]);
+
+        if ([value isKindOfClass:NSError.class]) {
+            if (error) {
+                *error = value;
+            }
+            return nil;
+        }
+
+        node[SCIXMLNodeKeyText] = value;
     }
 
     // But in canonical form, they all have an attribute dictionary.
@@ -509,16 +536,39 @@ NS_ASSUME_NONNULL_END
         NSMutableDictionary *attributes = node[SCIXMLNodeKeyAttributes];
         assert(attributes && [attributes isKindOfClass:NSMutableDictionary.class]);
 
-        NSArray *attributeNames = attributes.allKeys;
+        NSArray<NSString *> *attributeNames = attributes.allKeys;
+
         for (NSString *attrName in attributeNames) {
-            attributes[attrName] = transform.attributeTransform(attributes[attrName]);
+            id value = transform.attributeTransform(attributes[attrName]);
+
+            if ([value isKindOfClass:NSError.class]) {
+                if (error) {
+                    *error = value;
+                }
+                return nil;
+            }
+
+            attributes[attrName] = value;
         }
     }
 
     // Finally, when all transformations on the individual parts of the node
     // have been performed, we give the transform a last opportunity to make
     // the node even more meaningful and concise...
-    return transform.nodeTransform ? transform.nodeTransform(node) : node;
+    if (transform.nodeTransform) {
+        id value = transform.nodeTransform(node);
+
+        if ([value isKindOfClass:NSError.class]) {
+            if (error) {
+                *error = value;
+            }
+            return nil;
+        }
+
+        return value;
+    }
+
+    return node;
 }
 
 + (NSDictionary *_Nullable)canonicalizeDictionary:(NSDictionary *)compacted
