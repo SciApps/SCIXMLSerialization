@@ -38,24 +38,24 @@ NSString *const SCIXMLAttributeTransformKeyValue = @"value";
         const char *c_name = property_getName(props[i]);
         NSString *name = @(c_name);
 
-        id _Nullable (^lhs_prop)(id) = [lhs valueForKey:name];
-        id _Nullable (^rhs_prop)(id) = [rhs valueForKey:name];
-        id _Nullable (^new_prop)(id) = nil;
+        id _Nullable (^lhsSubtransform)(id) = [lhs valueForKey:name];
+        id _Nullable (^rhsSubtransform)(id) = [rhs valueForKey:name];
+        id _Nullable (^newSubtransform)(id) = nil;
 
-        if (lhs_prop && rhs_prop) {
+        if (lhsSubtransform && rhsSubtransform) {
             switch (strategy) {
             case SCIXMLTransformCombinationConflictResolutionStrategyUseLeft: {
-                new_prop = lhs_prop;
+                newSubtransform = lhsSubtransform;
                 break;
             }
             case SCIXMLTransformCombinationConflictResolutionStrategyUseRight: {
-                new_prop = rhs_prop;
+                newSubtransform = rhsSubtransform;
                 break;
             }
             case SCIXMLTransformCombinationConflictResolutionStrategyCompose: {
-                new_prop = ^id _Nullable(id value) {
-                    id tmp = rhs_prop(value);
-                    return tmp == nil || [tmp isKindOfClass:NSError.class] ? tmp : lhs_prop(tmp);
+                newSubtransform = ^id _Nullable(id value) {
+                    id tmp = rhsSubtransform(value);
+                    return (tmp == nil || [tmp isKindOfClass:NSError.class]) ? tmp : lhsSubtransform(tmp);
                 };
                 break;
             }
@@ -64,10 +64,10 @@ NSString *const SCIXMLAttributeTransformKeyValue = @"value";
                 break;
             }
         } else {
-            new_prop = lhs_prop ?: rhs_prop;
+            newSubtransform = lhsSubtransform ?: rhsSubtransform;
         }
 
-        [transform setValue:new_prop forKey:name];
+        [transform setValue:newSubtransform forKey:name];
     }
 
     free(props);
