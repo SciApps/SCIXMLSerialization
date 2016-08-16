@@ -13,6 +13,10 @@
 #import "SCIXMLCompactingTransform.h"
 
 
+NSString *const SCIXMLAttributeTransformKeyName = @"name";
+NSString *const SCIXMLAttributeTransformKeyValue = @"value";
+
+
 @implementation SCIXMLCompactingTransform
 
 #pragma mark - Combining transforms
@@ -76,7 +80,7 @@
 + (instancetype)transformWithTypeTransform:(id _Nullable (^_Nullable)(NSString *))typeTransform
                              nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
                              textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
-                        attributeTransform:(id _Nullable (^_Nullable)(NSString *))attributeTransform
+                        attributeTransform:(id _Nullable (^_Nullable)(NSDictionary *))attributeTransform
                              nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform {
 
     return [[self alloc] initWithTypeTransform:typeTransform
@@ -107,13 +111,31 @@
 }
 
 + (instancetype)attributeFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
-    NSAssert(NO, @"Unimplemented");
-    return nil;
+    id <SCIXMLCompactingTransform> transform = [self new];
+    NSSet<NSString *> *whitelistSet = [NSSet setWithArray:whitelist];
+
+    transform.attributeTransform = ^id _Nullable (NSDictionary *nameValuePair) {
+        NSString *name  = nameValuePair[SCIXMLAttributeTransformKeyName];
+        NSString *value = nameValuePair[SCIXMLAttributeTransformKeyValue];
+
+        return [whitelistSet containsObject:name] ? value : nil;
+    };
+
+    return transform;
 }
 
 + (instancetype)attributeFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist {
-    NSAssert(NO, @"Unimplemented");
-    return nil;
+    id <SCIXMLCompactingTransform> transform = [self new];
+    NSSet<NSString *> *whitelistSet = [NSSet setWithArray:whitelist];
+
+    transform.attributeTransform = ^id _Nullable (NSDictionary *nameValuePair) {
+        NSString *name  = nameValuePair[SCIXMLAttributeTransformKeyName];
+        NSString *value = nameValuePair[SCIXMLAttributeTransformKeyValue];
+
+        return [whitelistSet containsObject:name] ? nil : value;
+    };
+
+    return transform;
 }
 
 + (instancetype)memberFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
@@ -131,7 +153,7 @@
 - (instancetype)initWithTypeTransform:(id _Nullable (^_Nullable)(NSString *))typeTransform
                         nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
                         textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
-                   attributeTransform:(id _Nullable (^_Nullable)(NSString *))attributeTransform
+                   attributeTransform:(id _Nullable (^_Nullable)(NSDictionary *))attributeTransform
                         nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform {
 
     self = [super init];

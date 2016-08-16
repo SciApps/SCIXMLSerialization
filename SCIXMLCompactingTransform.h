@@ -12,12 +12,17 @@
 
 
 NS_ASSUME_NONNULL_BEGIN
+
+FOUNDATION_EXPORT NSString *const SCIXMLAttributeTransformKeyName;
+FOUNDATION_EXPORT NSString *const SCIXMLAttributeTransformKeyValue;
+
+
 @protocol SCIXMLCompactingTransform <NSObject>
 
 @property (nonatomic, copy, nullable) id _Nullable (^typeTransform)(NSString *);
 @property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(NSString *);
 @property (nonatomic, copy, nullable) id _Nullable (^textTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(NSString *);
+@property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(NSDictionary *);
 @property (nonatomic, copy, nullable) id           (^nodeTransform)(NSDictionary *);
 
 // NSKeyValueCoding is an informal protocol, and as such,
@@ -28,6 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setValue:(id _Nullable)value forKey:(NSString *)key;
 
 @end
+
 NS_ASSUME_NONNULL_END
 
 
@@ -66,7 +72,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) id _Nullable (^typeTransform)(NSString *);
 @property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(NSString *);
 @property (nonatomic, copy, nullable) id _Nullable (^textTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(NSString *);
+@property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(NSDictionary *);
 @property (nonatomic, copy, nullable) id           (^nodeTransform)(NSDictionary *);
 
 // Designated initializer.
@@ -75,7 +81,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithTypeTransform:(id _Nullable (^_Nullable)(NSString *))typeTransform
                         nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
                         textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
-                   attributeTransform:(id _Nullable (^_Nullable)(NSString *))attributeTransform
+                   attributeTransform:(id _Nullable (^_Nullable)(NSDictionary *))attributeTransform
                         nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform NS_DESIGNATED_INITIALIZER;
 
 // Combines two transforms.
@@ -91,7 +97,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)transformWithTypeTransform:(id _Nullable (^_Nullable)(NSString *))typeTransform
                              nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
                              textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
-                        attributeTransform:(id _Nullable (^_Nullable)(NSString *))attributeTransform
+                        attributeTransform:(id _Nullable (^_Nullable)(NSDictionary *))attributeTransform
                              nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform;
 
 // A transform that removes the 'attributes' dictionary and adds its contents

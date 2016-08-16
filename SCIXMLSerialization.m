@@ -543,7 +543,12 @@ NS_ASSUME_NONNULL_END
         NSArray<NSString *> *attributeNames = attributes.allKeys;
 
         for (NSString *attrName in attributeNames) {
-            id value = transform.attributeTransform(attributes[attrName]);
+            id value = transform.attributeTransform(
+                @{
+                    SCIXMLAttributeTransformKeyName:  attrName,
+                    SCIXMLAttributeTransformKeyValue: attributes[attrName],
+                }
+            );
 
             if ([value isKindOfClass:NSError.class]) {
                 if (error) {
