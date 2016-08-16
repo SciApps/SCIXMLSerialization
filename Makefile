@@ -3,6 +3,7 @@ all:
 		-std=c99 \
 		-Wall \
 		-Wextra \
+		-Wno-unused-parameter \
 		-O0 \
 		-DDEBUG \
 		-UNDEBUG \

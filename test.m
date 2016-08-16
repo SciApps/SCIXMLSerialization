@@ -10,26 +10,33 @@ int main(int argc, char *argv[])
                                                      error:NULL];
 
         NSError *error = nil;
-        NSDictionary *root = [SCIXMLSerialization canonicalDictionaryWithXMLString:inXML
-                                                                             error:&error];
-        if (error) {
-            NSLog(@"Parser Error: %@", error);
-            return -1;
-        }
+        id obj = [SCIXMLSerialization compactedObjectWithXMLString:inXML
+                                               compactingTransform:SCIXMLCompactingTransform.attributeFlatteningTransform
+                                                             error:&error];
+        NSLog(@"%@", obj ?: error);
 
 
-        NSString *outXML = [SCIXMLSerialization xmlStringWithCanonicalDictionary:root
-                                                                     indentation:@"\t"
-                                                                           error:&error];
-        if (error) {
-            NSLog(@"Serialization Error: %@", error);
-            return -1;
-        }
+        // NSError *error = nil;
+        // NSDictionary *root = [SCIXMLSerialization canonicalDictionaryWithXMLString:inXML
+        //                                                                      error:&error];
+        // if (error) {
+        //     NSLog(@"Parser Error: %@", error);
+        //     return -1;
+        // }
 
-        [outXML writeToFile:@(argv[2])
-                 atomically:YES
-                   encoding:NSUTF8StringEncoding
-                      error:NULL];
+
+        // NSString *outXML = [SCIXMLSerialization xmlStringWithCanonicalDictionary:root
+        //                                                              indentation:@"\t"
+        //                                                                    error:&error];
+        // if (error) {
+        //     NSLog(@"Serialization Error: %@", error);
+        //     return -1;
+        // }
+
+        // [outXML writeToFile:@(argv[2])
+        //          atomically:YES
+        //            encoding:NSUTF8StringEncoding
+        //               error:NULL];
     }
 
     return 0;

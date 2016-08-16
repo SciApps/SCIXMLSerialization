@@ -102,6 +102,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // A transform that removes the 'attributes' dictionary and adds its contents
 // directly to the node being transformed.
+// If the attribute name already exists in the node as a key, an error is returned.
 // This is a node transform.
 + (instancetype)attributeFlatteningTransform;
 

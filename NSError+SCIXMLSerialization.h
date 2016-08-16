@@ -17,7 +17,7 @@ typedef NS_ENUM(NSUInteger, SCIXMLErrorCode) {
     SCIXMLErrorCodeWriterInit        = 2, // failed to initialize serializer/writer
     SCIXMLErrorCodeWriteFailed       = 3, // error in actually writing the XML data
     SCIXMLErrorCodeMalformedXML      = 4, // malformed XML, cannot parse
-    SCIXMLErrorCodeMalformedTree     = 5, // malformed tree, cannot serialize
+    SCIXMLErrorCodeMalformedTree     = 5, // malformed tree, cannot serialize or compactify
     SCIXMLErrorCodeNotUTF8Encoded    = 6, // input data is not in UTF-8
     SCIXMLErrorCodeUnimplemented     = 7, // feature, node type, etc. not yet implemented
 };

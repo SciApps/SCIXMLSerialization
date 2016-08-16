@@ -477,7 +477,7 @@ NS_ASSUME_NONNULL_END
     // is guaranteed to remain canonical, since the transform has no choice of
     // modifying it (for obvious temporal reasons).
     NSMutableArray *children = node[SCIXMLNodeKeyChildren];
-    assert(children && [children isKindOfClass:NSMutableArray.class]);
+    assert(children == nil || [children isKindOfClass:NSMutableArray.class]);
 
     // So, we recurse _first_, ...
     for (NSUInteger i = 0; i < children.count; i++) {
@@ -521,7 +521,7 @@ NS_ASSUME_NONNULL_END
         node[SCIXMLNodeKeyName] = value;
     }
 
-    // ...or text contents.
+    // ...or text contents...
     if (node[SCIXMLNodeKeyText] && transform.textTransform) {
         id value = transform.textTransform(node[SCIXMLNodeKeyText]);
 
@@ -535,10 +535,11 @@ NS_ASSUME_NONNULL_END
         node[SCIXMLNodeKeyText] = value;
     }
 
-    // But in canonical form, they all have an attribute dictionary.
-    if (transform.attributeTransform) {
-        NSMutableDictionary *attributes = node[SCIXMLNodeKeyAttributes];
-        assert(attributes && [attributes isKindOfClass:NSMutableDictionary.class]);
+    // ...or an attribute dictionary.
+    NSMutableDictionary *attributes = node[SCIXMLNodeKeyAttributes];
+
+    if (attributes && transform.attributeTransform) {
+        assert([attributes isKindOfClass:NSMutableDictionary.class]);
 
         NSArray<NSString *> *attributeNames = attributes.allKeys;
 

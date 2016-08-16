@@ -11,6 +11,7 @@
 #import <objc/runtime.h>
 
 #import "SCIXMLCompactingTransform.h"
+#import "SCIXMLSerialization.h"
 
 
 NSString *const SCIXMLAttributeTransformKeyName = @"name";
@@ -91,8 +92,32 @@ NSString *const SCIXMLAttributeTransformKeyValue = @"value";
 }
 
 + (instancetype)attributeFlatteningTransform {
-    NSAssert(NO, @"Unimplemented");
-    return nil;
+    id <SCIXMLCompactingTransform> transform = [self new];
+
+    transform.nodeTransform = ^id (NSDictionary *immutableNode) {
+        NSDictionary *attributes = immutableNode[SCIXMLNodeKeyAttributes];
+        NSMutableDictionary *node = [immutableNode mutableCopy];
+
+        // remove 'attributes' dictionary from new node
+        node[SCIXMLNodeKeyAttributes] = nil;
+
+        // append attributes to the node itself
+        for (NSString *attrName in attributes) {
+            // if the attribute name already exists as a key in the node, that's an error
+            if (node[attrName] != nil) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"attribute '%@' already exists in node %p",
+                                                    attrName,
+                                                    (void *)immutableNode];
+            }
+
+            node[attrName] = attributes[attrName];
+        }
+
+        return node;
+    };
+
+    return transform;
 }
 
 + (instancetype)childFlatteningTransformWithUnnamedNodeKeys:(NSDictionary<NSString *, NSString *> *_Nullable)unnamedNodeKeys {
