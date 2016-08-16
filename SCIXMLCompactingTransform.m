@@ -27,10 +27,8 @@
     SCIXMLCompactingTransform *transform = [SCIXMLCompactingTransform new];
 
     // enumerate all properties of the compacting transform protocol
-    Protocol *proto = @protocol(SCIXMLCompactingTransform);
-
     unsigned n = 0;
-    objc_property_t *props = protocol_copyPropertyList(proto, &n);
+    objc_property_t *props = protocol_copyPropertyList(@protocol(SCIXMLCompactingTransform), &n);
 
     for (unsigned i = 0; i < n; i++) {
         const char *c_name = property_getName(props[i]);
@@ -38,36 +36,34 @@
 
         id _Nullable (^lhs_prop)(id) = [lhs valueForKey:name];
         id _Nullable (^rhs_prop)(id) = [rhs valueForKey:name];
+        id _Nullable (^new_prop)(id) = nil;
 
         if (lhs_prop && rhs_prop) {
             switch (strategy) {
             case SCIXMLTransformCombinationConflictResolutionStrategyUseLeft: {
-                [transform setValue:lhs_prop forKey:name];
+                new_prop = lhs_prop;
                 break;
             }
             case SCIXMLTransformCombinationConflictResolutionStrategyUseRight: {
-                [transform setValue:rhs_prop forKey:name];
+                new_prop = rhs_prop;
                 break;
             }
             case SCIXMLTransformCombinationConflictResolutionStrategyCompose: {
-                id _Nullable (^composed)(id) = ^id _Nullable(id value) {
+                new_prop = ^id _Nullable(id value) {
                     id tmp = rhs_prop(value);
-                    return tmp ? lhs_prop(tmp) : nil;
+                    return tmp == nil || [tmp isKindOfClass:NSError.class] ? tmp : lhs_prop(tmp);
                 };
-
-                [transform setValue:composed forKey:name];
-
                 break;
             }
             default:
                 NSAssert(NO, @"invalid conflict resolution strategy");
                 break;
             }
-        } else if (lhs_prop) {
-            [transform setValue:lhs_prop forKey:name];
-        } else if (rhs_prop) {
-            [transform setValue:rhs_prop forKey:name];
+        } else {
+            new_prop = lhs_prop ?: rhs_prop;
         }
+
+        [transform setValue:new_prop forKey:name];
     }
 
     free(props);
@@ -81,7 +77,7 @@
                              nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
                              textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
                         attributeTransform:(id _Nullable (^_Nullable)(NSString *))attributeTransform
-                             nodeTransform:(id _Nullable (^_Nullable)(NSDictionary *))nodeTransform {
+                             nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform {
 
     return [[self alloc] initWithTypeTransform:typeTransform
                                  nameTransform:nameTransform
@@ -105,7 +101,7 @@
     return nil;
 }
 
-+ (instancetype)childParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap {
++ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap {
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
@@ -120,12 +116,12 @@
     return nil;
 }
 
-+ (instancetype)childFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
++ (instancetype)memberFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
 
-+ (instancetype)childFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist {
++ (instancetype)memberFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist {
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
@@ -136,7 +132,7 @@
                         nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
                         textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
                    attributeTransform:(id _Nullable (^_Nullable)(NSString *))attributeTransform
-                        nodeTransform:(id _Nullable (^_Nullable)(NSDictionary *))nodeTransform {
+                        nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform {
 
     self = [super init];
     if (self) {

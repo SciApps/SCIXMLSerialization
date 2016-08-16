@@ -18,14 +18,14 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(NSString *);
 @property (nonatomic, copy, nullable) id _Nullable (^textTransform)(NSString *);
 @property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^nodeTransform)(NSDictionary *);
+@property (nonatomic, copy, nullable) id           (^nodeTransform)(NSDictionary *);
 
 // NSKeyValueCoding is an informal protocol, and as such,
 // we don't get the valueForKey: and setValue:forKey: methods
 // by conforming to the NSObject protocol. So, this explicit
 // declaration of the methods is necessary.
-- (id)valueForKey:(NSString *)key;
-- (void)setValue:(id)value forKey:(NSString *)key;
+- (id _Nullable)valueForKey:(NSString *)key;
+- (void)setValue:(id _Nullable)value forKey:(NSString *)key;
 
 @end
 NS_ASSUME_NONNULL_END
@@ -51,9 +51,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Sub-transforms.
 // These may return nil which usually means "remove the transformed object".
-// They may also return an instance of NSError, in which case the transformation
-// operation will be aborted and the error will be propagated back to the caller
-// via the out NSError ** parameter of SCIXMLSerialization's class methods.
+// The only exception are node sub-transforms which *must* return a non-nil object.
+// Sub-transforms may also return an instance of NSError, in which case the
+// transformation operation will be aborted and the error will be propagated back
+// to the caller via the out NSError ** parameter of SCIXMLSerialization's methods.
 //
 // The transforms will be invoked on each individual node in the following order:
 //   1. typeTransform
@@ -66,7 +67,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(NSString *);
 @property (nonatomic, copy, nullable) id _Nullable (^textTransform)(NSString *);
 @property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^nodeTransform)(NSDictionary *);
+@property (nonatomic, copy, nullable) id           (^nodeTransform)(NSDictionary *);
 
 // Designated initializer.
 // Note: -init just calls this with all nil sub-transforms,
@@ -75,7 +76,7 @@ NS_ASSUME_NONNULL_BEGIN
                         nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
                         textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
                    attributeTransform:(id _Nullable (^_Nullable)(NSString *))attributeTransform
-                        nodeTransform:(id _Nullable (^_Nullable)(NSDictionary *))nodeTransform NS_DESIGNATED_INITIALIZER;
+                        nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform NS_DESIGNATED_INITIALIZER;
 
 // Combines two transforms.
 + (id <SCIXMLCompactingTransform>)combineTransform:(id <SCIXMLCompactingTransform>)lhs
@@ -91,7 +92,7 @@ NS_ASSUME_NONNULL_BEGIN
                              nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
                              textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
                         attributeTransform:(id _Nullable (^_Nullable)(NSString *))attributeTransform
-                             nodeTransform:(id _Nullable (^_Nullable)(NSDictionary *))nodeTransform;
+                             nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform;
 
 // A transform that removes the 'attributes' dictionary and adds its contents
 // directly to the node being transformed.
@@ -107,6 +108,7 @@ NS_ASSUME_NONNULL_BEGIN
 // will be added with keys that correspond to their types (SCIXMLNodeType*) in the
 // 'unnamedNodeKeys' dictionary. If no such key is found in the 'unnamedNodeKeys'
 // dictionary, then an error is returned.
+// This is a node transform.
 + (instancetype)childFlatteningTransformWithUnnamedNodeKeys:(NSDictionary<NSString *, NSString *> *_Nullable)unnamedNodeKeys;
 
 // A transform that attempts to parse attribute values as certain types.
@@ -116,7 +118,7 @@ NS_ASSUME_NONNULL_BEGIN
 //   null:       removes the key-value pair altogether, can be used for blacklisting filtering too
 //   objc_bool:  "YES" is parsed as @(YES), "NO" is parsed as @(NO), otherwise return an error
 //   cxx_bool:   "true" is parsed as @(true), "false" is parsed as @(false), otherwise return an error
-//   boolean:    objc_bool or cxx_bool, whichever works
+//   bool:       objc_bool or cxx_bool, whichever works
 //   decimal:    base-10 signed or unsigned integer, as parsed by strto[u]l(); error if unparseable
 //   binary:     base-2 unsigned integer as parsed by strtoul(); may have 0b prefix; error if unparseable
 //   octal:      base-8 unsigned integer as parsed by strtoul(); may have 0o prefix; error if unparseable
@@ -135,7 +137,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Similar to the attribute parser, but operates on immediate members of the node.
 // This is a node transform.
-+ (instancetype)childParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap;
++ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap;
 
 // Filtering attributes. The whitelisting variant keeps only the attributes of which
 // the name is in the whitelist; the blacklisting one throws away only those of which
@@ -146,8 +148,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Similar to the attribute filters, but this one filters the immediate members of the node.
 // These are node transforms.
-+ (instancetype)childFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist;
-+ (instancetype)childFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist;
++ (instancetype)memberFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist;
++ (instancetype)memberFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist;
 
 @end
 NS_ASSUME_NONNULL_END

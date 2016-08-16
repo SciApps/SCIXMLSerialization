@@ -46,9 +46,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL)libxmlUsesLibcAllocators;
 
+// Returns a canonical dictionary
 + (NSDictionary *_Nullable)dictionaryWithNode:(xmlNode *)node
                                         error:(NSError *__autoreleasing *)error;
 
+// Expects a canonical dictionary
 + (xmlChar *_Nullable)bufferWithDictionary:(NSDictionary *)dictionary
                                indentation:(NSString *_Nullable)indentation
                                     length:(NSUInteger *)length
@@ -67,13 +69,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL (^)(NSDictionary *, xmlTextWriter *, NSError *__autoreleasing *))nodeWriterWithFunction:(int (*)(xmlTextWriter *, const xmlChar *))writerFunction;
 
-+ (NSDictionary *_Nullable)compactDictionary:(NSDictionary *)canonical
-                               withTransform:(id <SCIXMLCompactingTransform>)transform
-                                       error:(NSError *__autoreleasing *)error;
+// Expects a canonical dictionary
++ (id _Nullable)compactDictionary:(NSDictionary *)canonical
+                    withTransform:(id <SCIXMLCompactingTransform>)transform
+                            error:(NSError *__autoreleasing *)error;
 
-+ (NSDictionary *_Nullable)canonicalizeDictionary:(NSDictionary *)compacted
-                                    withTransform:(id <SCIXMLCanonicalizingTransform>)transform
-                                            error:(NSError *__autoreleasing *)error;
+// Returns a canonical dictionary
++ (NSDictionary *_Nullable)canonicalizeObject:(id)compacted
+                                withTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                        error:(NSError *__autoreleasing *)error;
 
 @end
 NS_ASSUME_NONNULL_END
@@ -455,9 +459,9 @@ NS_ASSUME_NONNULL_END
 
 #pragma mark - Compaction and Canonicalization (internal methods)
 
-+ (NSDictionary *_Nullable)compactDictionary:(NSDictionary *)canonical
-                               withTransform:(id <SCIXMLCompactingTransform>)transform
-                                       error:(NSError *__autoreleasing *)error {
++ (id _Nullable)compactDictionary:(NSDictionary *)canonical
+                    withTransform:(id <SCIXMLCompactingTransform>)transform
+                            error:(NSError *__autoreleasing *)error {
 
     NSParameterAssert(canonical);
     NSParameterAssert(transform);
@@ -477,9 +481,9 @@ NS_ASSUME_NONNULL_END
 
     // So, we recurse _first_, ...
     for (NSUInteger i = 0; i < children.count; i++) {
-        NSDictionary *transformedChild = [self compactDictionary:children[i]
-                                                   withTransform:transform
-                                                           error:error];
+        id transformedChild = [self compactDictionary:children[i]
+                                        withTransform:transform
+                                                error:error];
         if (transformedChild == nil) {
             return nil;
         }
@@ -557,6 +561,7 @@ NS_ASSUME_NONNULL_END
     // the node even more meaningful and concise...
     if (transform.nodeTransform) {
         id value = transform.nodeTransform(node);
+        NSAssert(value != nil, @"nodeTransform may not return nil, only a valid object or an NSError");
 
         if ([value isKindOfClass:NSError.class]) {
             if (error) {
@@ -571,9 +576,9 @@ NS_ASSUME_NONNULL_END
     return node;
 }
 
-+ (NSDictionary *_Nullable)canonicalizeDictionary:(NSDictionary *)compacted
-                                    withTransform:(id <SCIXMLCanonicalizingTransform>)transform
-                                            error:(NSError *__autoreleasing *)error {
++ (NSDictionary *_Nullable)canonicalizeObject:(id)compacted
+                                withTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                        error:(NSError *__autoreleasing *)error {
 
     NSParameterAssert(compacted);
     NSParameterAssert(transform);
@@ -605,9 +610,9 @@ NS_ASSUME_NONNULL_END
                                           error:error];
 }
 
-+ (NSDictionary *_Nullable)compactedDictionaryWithXMLString:(NSString *)xml
-                                        compactingTransform:(id <SCIXMLCompactingTransform>)transform
-                                                      error:(NSError *__autoreleasing *)error {
++ (id _Nullable)compactedObjectWithXMLString:(NSString *)xml
+                         compactingTransform:(id <SCIXMLCompactingTransform>)transform
+                                       error:(NSError *__autoreleasing *)error {
 
     NSParameterAssert(xml);
     NSParameterAssert(transform);
@@ -621,9 +626,9 @@ NS_ASSUME_NONNULL_END
         return nil;
     }
 
-    return [self compactedDictionaryWithXMLData:data
-                            compactingTransform:transform
-                                          error:error];
+    return [self compactedObjectWithXMLData:data
+                        compactingTransform:transform
+                                      error:error];
 }
 
 #pragma mark - Parsing/Deserialization from Data
@@ -673,9 +678,9 @@ NS_ASSUME_NONNULL_END
     return dict;
 }
 
-+ (NSDictionary *_Nullable)compactedDictionaryWithXMLData:(NSData *)xml
-                                      compactingTransform:(id <SCIXMLCompactingTransform>)transform
-                                                    error:(NSError *__autoreleasing *)error {
++ (id _Nullable)compactedObjectWithXMLData:(NSData *)xml
+                       compactingTransform:(id <SCIXMLCompactingTransform>)transform
+                                     error:(NSError *__autoreleasing *)error {
 
     NSParameterAssert(xml);
     NSParameterAssert(transform);
@@ -740,17 +745,17 @@ NS_ASSUME_NONNULL_END
     return string;
 }
 
-+ (NSString *_Nullable)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
-                                canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
-                                            indentation:(NSString *_Nullable)indentation
-                                                  error:(NSError *__autoreleasing *)error {
++ (NSString *_Nullable)xmlStringWithCompactedObject:(id)object
+                            canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                        indentation:(NSString *_Nullable)indentation
+                                              error:(NSError *__autoreleasing *)error {
 
-    NSParameterAssert(dictionary);
+    NSParameterAssert(object);
     NSParameterAssert(transform);
 
-    NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
-                                                 withTransform:transform
-                                                         error:error];
+    NSDictionary *canonicalDict = [self canonicalizeObject:object
+                                             withTransform:transform
+                                                     error:error];
     if (canonicalDict == nil) {
         return nil;
     }
@@ -793,17 +798,17 @@ NS_ASSUME_NONNULL_END
     }
 }
 
-+ (NSData *_Nullable)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
-                            canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
-                                        indentation:(NSString *_Nullable)indentation
-                                              error:(NSError *__autoreleasing *)error {
++ (NSData *_Nullable)xmlDataWithCompactedObject:(id)object
+                        canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                    indentation:(NSString *_Nullable)indentation
+                                          error:(NSError *__autoreleasing *)error {
 
-    NSParameterAssert(dictionary);
+    NSParameterAssert(object);
     NSParameterAssert(transform);
 
-    NSDictionary *canonicalDict = [self canonicalizeDictionary:dictionary
-                                                 withTransform:transform
-                                                         error:error];
+    NSDictionary *canonicalDict = [self canonicalizeObject:object
+                                             withTransform:transform
+                                                     error:error];
     if (canonicalDict == nil) {
         return nil;
     }

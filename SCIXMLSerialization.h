@@ -40,18 +40,18 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeEntityRef;
 + (NSDictionary *_Nullable)canonicalDictionaryWithXMLString:(NSString *)xml
                                                       error:(NSError *__autoreleasing *)error;
 
-+ (NSDictionary *_Nullable)compactedDictionaryWithXMLString:(NSString *)xml
-                                        compactingTransform:(id <SCIXMLCompactingTransform>)transform
-                                                      error:(NSError *__autoreleasing *)error;
++ (id _Nullable)compactedObjectWithXMLString:(NSString *)xml
+                         compactingTransform:(id <SCIXMLCompactingTransform>)transform
+                                       error:(NSError *__autoreleasing *)error;
 
 #pragma mark - Parsing/Deserialization from Binary Data
 
 + (NSDictionary *_Nullable)canonicalDictionaryWithXMLData:(NSData *)xml
                                                     error:(NSError *__autoreleasing *)error;
 
-+ (NSDictionary *_Nullable)compactedDictionaryWithXMLData:(NSData *)xml
-                                      compactingTransform:(id <SCIXMLCompactingTransform>)transform
-                                                    error:(NSError *__autoreleasing *)error;
++ (id _Nullable)compactedObjectWithXMLData:(NSData *)xml
+                       compactingTransform:(id <SCIXMLCompactingTransform>)transform
+                                     error:(NSError *__autoreleasing *)error;
 
 #pragma mark - Generating/Serialization into Strings
 
@@ -59,10 +59,10 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeEntityRef;
                                             indentation:(NSString *_Nullable)indentation
                                                   error:(NSError *__autoreleasing *)error;
 
-+ (NSString *_Nullable)xmlStringWithCompactedDictionary:(NSDictionary *)dictionary
-                                canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
-                                            indentation:(NSString *_Nullable)indentation
-                                                  error:(NSError *__autoreleasing *)error;
++ (NSString *_Nullable)xmlStringWithCompactedObject:(id)object
+                            canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                        indentation:(NSString *_Nullable)indentation
+                                              error:(NSError *__autoreleasing *)error;
 
 #pragma mark - Generating/Serialization into Binary Data
 
@@ -70,10 +70,10 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeEntityRef;
                                         indentation:(NSString *_Nullable)indentation
                                               error:(NSError *__autoreleasing *)error;
 
-+ (NSData *_Nullable)xmlDataWithCompactedDictionary:(NSDictionary *)dictionary
-                            canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
-                                        indentation:(NSString *_Nullable)indentation
-                                              error:(NSError *__autoreleasing *)error;
++ (NSData *_Nullable)xmlDataWithCompactedObject:(id)object
+                        canonicalizingTransform:(id <SCIXMLCanonicalizingTransform>)transform
+                                    indentation:(NSString *_Nullable)indentation
+                                          error:(NSError *__autoreleasing *)error;
 
 
 @end
