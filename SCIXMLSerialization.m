@@ -474,7 +474,7 @@ NS_ASSUME_NONNULL_END
     // Perform a bottom-up traversal of the node tree.
     // The reason for the bottom-up traversal is that this way, the structure
     // of the 'remaining' tree (the part above the node currently being processed)
-    // is guaranteed to remain canonical, since the transform has no choice of
+    // is guaranteed to remain canonical, since the transform has no chance of
     // modifying it (for obvious temporal reasons).
     NSMutableArray *children = node[SCIXMLNodeKeyChildren];
     assert(children == nil || [children isKindOfClass:NSMutableArray.class]);

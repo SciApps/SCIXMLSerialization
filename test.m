@@ -9,9 +9,14 @@ int main(int argc, char *argv[])
                                               usedEncoding:&enc
                                                      error:NULL];
 
+        id <SCIXMLCompactingTransform> transform;
+        transform = [SCIXMLCompactingTransform combineTransform:SCIXMLCompactingTransform.attributeFlatteningTransform
+                                                  withTransform:[SCIXMLCompactingTransform attributeFilterTransformWithBlacklist:@[@"baz"]]
+                                     conflictResolutionStrategy:SCIXMLTransformCombinationConflictResolutionStrategyCompose];
+
         NSError *error = nil;
         id obj = [SCIXMLSerialization compactedObjectWithXMLString:inXML
-                                               compactingTransform:SCIXMLCompactingTransform.attributeFlatteningTransform
+                                               compactingTransform:transform
                                                              error:&error];
         NSLog(@"%@", obj ?: error);
 
