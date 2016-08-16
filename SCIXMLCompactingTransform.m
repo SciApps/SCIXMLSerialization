@@ -126,13 +126,13 @@ NSString *const SCIXMLAttributeTransformKeyValue = @"value";
 
 + (instancetype)attributeFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist {
     id <SCIXMLCompactingTransform> transform = [self new];
-    NSSet<NSString *> *whitelistSet = [NSSet setWithArray:whitelist];
+    NSSet<NSString *> *blacklistSet = [NSSet setWithArray:blacklist];
 
     transform.attributeTransform = ^id _Nullable (NSDictionary *nameValuePair) {
         NSString *name  = nameValuePair[SCIXMLAttributeTransformKeyName];
         NSString *value = nameValuePair[SCIXMLAttributeTransformKeyValue];
 
-        return [whitelistSet containsObject:name] ? nil : value;
+        return [blacklistSet containsObject:name] ? nil : value;
     };
 
     return transform;

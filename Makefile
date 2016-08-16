@@ -2,6 +2,7 @@ all:
 	xcrun -sdk macosx clang \
 		-std=c99 \
 		-Wall \
+		-Wextra \
 		-O0 \
 		-DDEBUG \
 		-UNDEBUG \
