@@ -125,6 +125,11 @@ NSString *const SCIXMLAttributeTransformKeyValue = @"value";
     return nil;
 }
 
++ (instancetype)textNodeFlatteningTransform {
+    NSAssert(NO, @"Unimplemented");
+    return nil;
+}
+
 + (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap {
     NSAssert(NO, @"Unimplemented");
     return nil;

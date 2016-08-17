@@ -118,6 +118,40 @@ NS_ASSUME_NONNULL_BEGIN
 // This is a node transform.
 + (instancetype)childFlatteningTransformWithUnnamedNodeKeys:(NSDictionary<NSString *, NSString *> *_Nullable)unnamedNodeKeys;
 
+// Flatten a text node across two levels of nesting: dig into a child of the
+// parent node, check if it only has one child of type 'text' in turn, and if
+// so, set its contents in the parent for the child element name as the key.
+//
+// For example, the following XML:
+//
+//    <root><value>Foo</value></root>
+//
+// would be represented in canonical form as:
+//
+//    {
+//      name = root;
+//      children = (
+//        {
+//          name = value;
+//          children = (
+//            {
+//              text = Foo;
+//            }
+//          );
+//        }
+//      );
+//    }
+//
+// But after this transform, it would drastically simplify to:
+//
+//   {
+//     name = root;
+//     value = Foo;
+//   }
+//
+// This is a node transform.
++ (instancetype)textNodeFlatteningTransform;
+
 // A transform that attempts to parse attribute values as certain types.
 // This is an attribute transform.
 // The type map is a dictionary of attribute names to type specifier strings.
