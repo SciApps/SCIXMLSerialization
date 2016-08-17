@@ -18,6 +18,16 @@ NSString *const SCIXMLAttributeTransformKeyName = @"name";
 NSString *const SCIXMLAttributeTransformKeyValue = @"value";
 
 
+NS_ASSUME_NONNULL_BEGIN
+@interface SCIXMLCompactingTransform ()
+
++ (instancetype)attributeFilterTransformWithNameList:(NSArray<NSString *> *)nameList
+                          invertContainmentCondition:(BOOL)invert;
+
+@end
+NS_ASSUME_NONNULL_END
+
+
 @implementation SCIXMLCompactingTransform
 
 #pragma mark - Combining transforms
@@ -141,28 +151,26 @@ NSString *const SCIXMLAttributeTransformKeyValue = @"value";
 }
 
 + (instancetype)attributeFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
-    id <SCIXMLCompactingTransform> transform = [self new];
-    NSSet<NSString *> *whitelistSet = [NSSet setWithArray:whitelist];
-
-    transform.attributeTransform = ^id _Nullable (NSDictionary *nameValuePair) {
-        NSString *name  = nameValuePair[SCIXMLAttributeTransformKeyName];
-        NSString *value = nameValuePair[SCIXMLAttributeTransformKeyValue];
-
-        return [whitelistSet containsObject:name] ? value : nil;
-    };
-
-    return transform;
+    return [self attributeFilterTransformWithNameList:whitelist
+                           invertContainmentCondition:NO];
 }
 
 + (instancetype)attributeFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist {
+    return [self attributeFilterTransformWithNameList:blacklist
+                           invertContainmentCondition:YES];
+}
+
++ (instancetype)attributeFilterTransformWithNameList:(NSArray<NSString *> *)nameList
+                          invertContainmentCondition:(BOOL)invert {
+
+    NSSet<NSString *> *nameSet = [NSSet setWithArray:nameList];
     id <SCIXMLCompactingTransform> transform = [self new];
-    NSSet<NSString *> *blacklistSet = [NSSet setWithArray:blacklist];
 
     transform.attributeTransform = ^id _Nullable (NSDictionary *nameValuePair) {
         NSString *name  = nameValuePair[SCIXMLAttributeTransformKeyName];
         NSString *value = nameValuePair[SCIXMLAttributeTransformKeyValue];
 
-        return [blacklistSet containsObject:name] ? nil : value;
+        return [nameSet containsObject:name] ^ invert ? value : nil;
     };
 
     return transform;

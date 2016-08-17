@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 
         id <SCIXMLCompactingTransform> transform;
         transform = [SCIXMLCompactingTransform combineTransform:SCIXMLCompactingTransform.attributeFlatteningTransform
-                                                  withTransform:[SCIXMLCompactingTransform attributeFilterTransformWithBlacklist:@[@"baz"]]
+                                                  withTransform:[SCIXMLCompactingTransform attributeFilterTransformWithWhitelist:@[@"baz", @"bar"]]
                                      conflictResolutionStrategy:SCIXMLTransformCombinationConflictResolutionStrategyCompose];
 
         NSError *error = nil;
