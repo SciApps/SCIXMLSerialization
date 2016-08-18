@@ -16,6 +16,8 @@
 #import <libxml/xmlwriter.h>
 
 #import "SCIXMLSerialization.h"
+#import "NSObject+SCIXMLSerialization.h"
+
 
 // Make an NSString out of a const xlmChar *.
 #define NSXS(str) (@((const char *)(str)))
@@ -358,7 +360,7 @@ NS_ASSUME_NONNULL_END
                 NSString *attrValue = attributes[attrName];
 
                 // Both keys and values _must_ be strings!
-                if ([attrName isKindOfClass:NSString.class] && [attrValue isKindOfClass:NSString.class]) {
+                if (attrName.isString && attrValue.isString) {
                     if (xmlTextWriterWriteAttribute(writer, XS(attrName.UTF8String), XS(attrValue.UTF8String)) < 0) {
                         if (error) {
                             *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
@@ -377,7 +379,7 @@ NS_ASSUME_NONNULL_END
 
             // Write children recursively
             for (NSDictionary *child in children) {
-                if ([child isKindOfClass:NSDictionary.class]) {
+                if (child.isDictionary) {
                     if ([self writeXMLNode:child writer:writer error:error] == NO) {
                         return NO;
                     }
@@ -468,7 +470,7 @@ NS_ASSUME_NONNULL_END
 
     // We know that the canonical dictionary is mutable; we use this knowledge
     // to optimize the traversal by eliminating unnecessary memory allocations.
-    assert([canonical isKindOfClass:NSMutableDictionary.class]);
+    assert(canonical.isMutableDictionary);
     NSMutableDictionary *node = (NSMutableDictionary *)canonical;
 
     // Perform a bottom-up traversal of the node tree.
@@ -477,7 +479,7 @@ NS_ASSUME_NONNULL_END
     // is guaranteed to remain canonical, since the transform has no chance of
     // modifying it (for obvious temporal reasons).
     NSMutableArray *children = node[SCIXMLNodeKeyChildren];
-    assert(children == nil || [children isKindOfClass:NSMutableArray.class]);
+    assert(children == nil || children.isMutableArray);
 
     // So, we recurse _first_, ...
     for (NSUInteger i = 0; i < children.count; i++) {
@@ -497,7 +499,7 @@ NS_ASSUME_NONNULL_END
     if (transform.typeTransform) {
         id value = transform.typeTransform(node[SCIXMLNodeKeyType]);
 
-        if ([value isKindOfClass:NSError.class]) {
+        if ([value isError]) {
             if (error) {
                 *error = value;
             }
@@ -511,7 +513,7 @@ NS_ASSUME_NONNULL_END
     if (node[SCIXMLNodeKeyName] && transform.nameTransform) {
         id value = transform.nameTransform(node[SCIXMLNodeKeyName]);
 
-        if ([value isKindOfClass:NSError.class]) {
+        if ([value isError]) {
             if (error) {
                 *error = value;
             }
@@ -525,7 +527,7 @@ NS_ASSUME_NONNULL_END
     if (node[SCIXMLNodeKeyText] && transform.textTransform) {
         id value = transform.textTransform(node[SCIXMLNodeKeyText]);
 
-        if ([value isKindOfClass:NSError.class]) {
+        if ([value isError]) {
             if (error) {
                 *error = value;
             }
@@ -539,11 +541,13 @@ NS_ASSUME_NONNULL_END
     NSMutableDictionary *attributes = node[SCIXMLNodeKeyAttributes];
 
     if (attributes && transform.attributeTransform) {
-        assert([attributes isKindOfClass:NSMutableDictionary.class]);
+        assert(attributes.isMutableDictionary);
 
         NSArray<NSString *> *attributeNames = attributes.allKeys;
 
         for (NSString *attrName in attributeNames) {
+            assert(attrName.isString);
+
             id value = transform.attributeTransform(
                 @{
                     SCIXMLAttributeTransformKeyName:  attrName,
@@ -551,7 +555,7 @@ NS_ASSUME_NONNULL_END
                 }
             );
 
-            if ([value isKindOfClass:NSError.class]) {
+            if ([value isError]) {
                 if (error) {
                     *error = value;
                 }
@@ -569,7 +573,7 @@ NS_ASSUME_NONNULL_END
         id value = transform.nodeTransform(node);
         NSAssert(value != nil, @"nodeTransform may not return nil, only a valid object or an NSError");
 
-        if ([value isKindOfClass:NSError.class]) {
+        if ([value isError]) {
             if (error) {
                 *error = value;
             }

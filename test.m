@@ -9,10 +9,15 @@ int main(int argc, char *argv[])
                                               usedEncoding:&enc
                                                      error:NULL];
 
+        NSArray<id<SCIXMLCompactingTransform>> *transforms = @[
+            SCIXMLCompactingTransform.attributeFlatteningTransform,
+            SCIXMLCompactingTransform.elementTypeFilterTransform,
+            SCIXMLCompactingTransform.textNodeFlatteningTransform,
+        ];
+
         id <SCIXMLCompactingTransform> transform;
-        transform = [SCIXMLCompactingTransform combineTransform:SCIXMLCompactingTransform.attributeFlatteningTransform
-                                                  withTransform:[SCIXMLCompactingTransform attributeFilterTransformWithWhitelist:@[@"baz", @"bar"]]
-                                     conflictResolutionStrategy:SCIXMLTransformCombinationConflictResolutionStrategyCompose];
+        transform = [SCIXMLCompactingTransform combineTransforms:transforms
+                                      conflictResolutionStrategy:SCIXMLTransformCombinationConflictResolutionStrategyCompose];
 
         NSError *error = nil;
         id obj = [SCIXMLSerialization compactedObjectWithXMLString:inXML

@@ -19,11 +19,11 @@ FOUNDATION_EXPORT NSString *const SCIXMLAttributeTransformKeyValue;
 
 @protocol SCIXMLCompactingTransform <NSObject>
 
-@property (nonatomic, copy, nullable) id _Nullable (^typeTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^textTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(NSDictionary *);
-@property (nonatomic, copy, nullable) id           (^nodeTransform)(NSDictionary *);
+@property (nonatomic, copy, nullable) id _Nullable (^typeTransform)(id);
+@property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(id);
+@property (nonatomic, copy, nullable) id _Nullable (^textTransform)(id);
+@property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(id);
+@property (nonatomic, copy, nullable) id           (^nodeTransform)(id);
 
 // NSKeyValueCoding is an informal protocol, and as such,
 // we don't get the valueForKey: and setValue:forKey: methods
@@ -69,36 +69,45 @@ NS_ASSUME_NONNULL_BEGIN
 //   4. attributeTransform
 //   5. nodeTransform
 //
-@property (nonatomic, copy, nullable) id _Nullable (^typeTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^textTransform)(NSString *);
-@property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(NSDictionary *);
-@property (nonatomic, copy, nullable) id           (^nodeTransform)(NSDictionary *);
+@property (nonatomic, copy, nullable) id _Nullable (^typeTransform)(id);
+@property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(id);
+@property (nonatomic, copy, nullable) id _Nullable (^textTransform)(id);
+@property (nonatomic, copy, nullable) id _Nullable (^attributeTransform)(id);
+@property (nonatomic, copy, nullable) id           (^nodeTransform)(id);
 
 // Designated initializer.
 // Note: -init just calls this with all nil sub-transforms,
 // so -init and +new result in essentially an (inefficient) identity transform.
-- (instancetype)initWithTypeTransform:(id _Nullable (^_Nullable)(NSString *))typeTransform
-                        nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
-                        textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
-                   attributeTransform:(id _Nullable (^_Nullable)(NSDictionary *))attributeTransform
-                        nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithTypeTransform:(id _Nullable (^_Nullable)(id))typeTransform
+                        nameTransform:(id _Nullable (^_Nullable)(id))nameTransform
+                        textTransform:(id _Nullable (^_Nullable)(id))textTransform
+                   attributeTransform:(id _Nullable (^_Nullable)(id))attributeTransform
+                        nodeTransform:(id           (^_Nullable)(id))nodeTransform NS_DESIGNATED_INITIALIZER;
 
-// Combines two transforms.
+// Combines two transforms. When the conflict resolution strategy is 'Compose',
+// the returned transform is equivalent with (lhs o rhs),
+// i.e. the right-hand-side is applied first.
 + (id <SCIXMLCompactingTransform>)combineTransform:(id <SCIXMLCompactingTransform>)lhs
                                      withTransform:(id <SCIXMLCompactingTransform>)rhs
                         conflictResolutionStrategy:(SCIXMLTransformCombinationConflictResolutionStrategy)strategy;
+
+// Combines an arbitrary number of transforms using the same conflict resolution strategy.
+// The combining process works from right to left, i.e. the first transform in the array
+// will be the rightmost/innermost one, so it is applied first. This is done so that
+// the transform array can be imagined like a pipeline that the tree flows through.
++ (id <SCIXMLCompactingTransform>)combineTransforms:(NSArray<id<SCIXMLCompactingTransform>> *)transforms
+                         conflictResolutionStrategy:(SCIXMLTransformCombinationConflictResolutionStrategy)strategy;
 
 //
 // Convenience factory methods for common use cases
 //
 
 // General, all-customizable convenience factory method
-+ (instancetype)transformWithTypeTransform:(id _Nullable (^_Nullable)(NSString *))typeTransform
-                             nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
-                             textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
-                        attributeTransform:(id _Nullable (^_Nullable)(NSDictionary *))attributeTransform
-                             nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform;
++ (instancetype)transformWithTypeTransform:(id _Nullable (^_Nullable)(id))typeTransform
+                             nameTransform:(id _Nullable (^_Nullable)(id))nameTransform
+                             textTransform:(id _Nullable (^_Nullable)(id))textTransform
+                        attributeTransform:(id _Nullable (^_Nullable)(id))attributeTransform
+                             nodeTransform:(id           (^_Nullable)(id))nodeTransform;
 
 // A transform that removes the 'attributes' dictionary and adds its contents
 // directly to the node being transformed.
@@ -118,39 +127,43 @@ NS_ASSUME_NONNULL_BEGIN
 // This is a node transform.
 + (instancetype)childFlatteningTransformWithUnnamedNodeKeys:(NSDictionary<NSString *, NSString *> *_Nullable)unnamedNodeKeys;
 
-// Flatten a text node across two levels of nesting: dig into a child of the
-// parent node, check if it only has one child of type 'text' in turn, and if
-// so, set its contents in the parent for the child element name as the key.
+// This transform flattens text nodes: it replaces them with just their string content.
+// TODO(H2CO3): should this support CDATA nodes (with identical semantics)?
 //
 // For example, the following XML:
 //
-//    <root><value>Foo</value></root>
+//    <value>Foo</value>
 //
 // would be represented in canonical form as:
 //
 //    {
-//      name = root;
+//      name = value;
 //      children = (
 //        {
-//          name = value;
-//          children = (
-//            {
-//              text = Foo;
-//            }
-//          );
+//          text = Foo;
 //        }
 //      );
 //    }
 //
-// But after this transform, it would drastically simplify to:
+// But after this transform, it would simplify to:
 //
 //   {
-//     name = root;
-//     value = Foo;
+//     name = value;
+//     children = (
+//       "Foo"
+//     );
 //   }
 //
 // This is a node transform.
 + (instancetype)textNodeFlatteningTransform;
+
+// Removes all comment nodes from the tree.
+// This is a node transform.
++ (instancetype)commentFilterTransform;
+
+// Removes the 'type' key from element nodes.
+// This is a type transform.
++ (instancetype)elementTypeFilterTransform;
 
 // A transform that attempts to parse attribute values as certain types.
 // This is an attribute transform.

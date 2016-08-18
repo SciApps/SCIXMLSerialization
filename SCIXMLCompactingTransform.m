@@ -12,6 +12,7 @@
 
 #import "SCIXMLCompactingTransform.h"
 #import "SCIXMLSerialization.h"
+#import "NSObject+SCIXMLSerialization.h"
 
 
 NSString *const SCIXMLAttributeTransformKeyName = @"name";
@@ -65,8 +66,8 @@ NS_ASSUME_NONNULL_END
             }
             case SCIXMLTransformCombinationConflictResolutionStrategyCompose: {
                 newSubtransform = ^id _Nullable(id value) {
-                    id tmp = rhsSubtransform(value);
-                    return (tmp == nil || [tmp isKindOfClass:NSError.class]) ? tmp : lhsSubtransform(tmp);
+                    NSObject *tmp = rhsSubtransform(value);
+                    return tmp == nil || tmp.isError ? tmp : lhsSubtransform(tmp);
                 };
                 break;
             }
@@ -86,13 +87,30 @@ NS_ASSUME_NONNULL_END
     return transform;
 }
 
++ (id <SCIXMLCompactingTransform>)combineTransforms:(NSArray<id<SCIXMLCompactingTransform>> *)transforms
+                         conflictResolutionStrategy:(SCIXMLTransformCombinationConflictResolutionStrategy)strategy {
+
+    NSParameterAssert(transforms);
+
+    id <SCIXMLCompactingTransform> newTransform = [self new];
+
+    for (id <SCIXMLCompactingTransform> transform in transforms) {
+        // combine in "reverse" order, right-to-left
+        newTransform = [self combineTransform:transform
+                                withTransform:newTransform
+                   conflictResolutionStrategy:strategy];
+    }
+
+    return newTransform;
+}
+
 #pragma mark - Convenience factory methods
 
-+ (instancetype)transformWithTypeTransform:(id _Nullable (^_Nullable)(NSString *))typeTransform
-                             nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
-                             textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
-                        attributeTransform:(id _Nullable (^_Nullable)(NSDictionary *))attributeTransform
-                             nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform {
++ (instancetype)transformWithTypeTransform:(id _Nullable (^_Nullable)(id))typeTransform
+                             nameTransform:(id _Nullable (^_Nullable)(id))nameTransform
+                             textTransform:(id _Nullable (^_Nullable)(id))textTransform
+                        attributeTransform:(id _Nullable (^_Nullable)(id))attributeTransform
+                             nodeTransform:(id           (^_Nullable)(id))nodeTransform {
 
     return [[self alloc] initWithTypeTransform:typeTransform
                                  nameTransform:nameTransform
@@ -105,23 +123,41 @@ NS_ASSUME_NONNULL_END
     id <SCIXMLCompactingTransform> transform = [self new];
 
     transform.nodeTransform = ^id (NSDictionary *immutableNode) {
+        // the node must be a dictionary...
+        if (immutableNode.isDictionary == NO) {
+            return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                         format:@"%s: node must be a dictionary", __PRETTY_FUNCTION__];
+        }
+
+        // ...as well as its attributes
         NSDictionary *attributes = immutableNode[SCIXMLNodeKeyAttributes];
+
+        // if there are no attributes, save a mutableCopy of the input node
+        if (attributes == nil) {
+            return immutableNode;
+        }
+
+        if (attributes.isDictionary == NO) {
+            return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                         format:@"%s: attributes must be a dictionary", __PRETTY_FUNCTION__];
+        }
+
         NSMutableDictionary *node = [immutableNode mutableCopy];
 
         // remove 'attributes' dictionary from new node
         node[SCIXMLNodeKeyAttributes] = nil;
 
         // append attributes to the node itself
-        for (NSString *attrName in attributes) {
+        for (id <NSCopying> attrKey in attributes) {
             // if the attribute name already exists as a key in the node, that's an error
-            if (node[attrName] != nil) {
+            if (node[attrKey] != nil) {
                 return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                             format:@"attribute '%@' already exists in node %p",
-                                                    attrName,
+                                             format:@"attribute for key '%@' already exists in node %p",
+                                                    attrKey,
                                                     (void *)immutableNode];
             }
 
-            node[attrName] = attributes[attrName];
+            node[attrKey] = attributes[attrKey];
         }
 
         return node;
@@ -136,8 +172,39 @@ NS_ASSUME_NONNULL_END
 }
 
 + (instancetype)textNodeFlatteningTransform {
+    SCIXMLCompactingTransform *transform = [self new];
+
+    transform.nodeTransform = ^id (NSDictionary *node) {
+        if (node.isDictionary == NO) {
+            return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                         format:@"%s: node must be a dictionary", __PRETTY_FUNCTION__];
+        }
+
+        // If the node is a text node, collapse it into its text contents
+        if ([node[SCIXMLNodeKeyType] isEqual:SCIXMLNodeTypeText]) {
+            return node[SCIXMLNodeKeyText] ?: @""; // node transform must not yield nil
+        }
+
+        // Otherwise, don't touch it
+        return node;
+    };
+
+    return transform;
+}
+
++ (instancetype)commentFilterTransform {
     NSAssert(NO, @"Unimplemented");
     return nil;
+}
+
++ (instancetype)elementTypeFilterTransform {
+    SCIXMLCompactingTransform *transform = [self new];
+
+    transform.typeTransform = ^_Nullable id(id type) {
+        return [type isEqual:SCIXMLNodeTypeElement] ? nil : type;
+    };
+
+    return transform;
 }
 
 + (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap {
@@ -167,8 +234,13 @@ NS_ASSUME_NONNULL_END
     id <SCIXMLCompactingTransform> transform = [self new];
 
     transform.attributeTransform = ^id _Nullable (NSDictionary *nameValuePair) {
-        NSString *name  = nameValuePair[SCIXMLAttributeTransformKeyName];
-        NSString *value = nameValuePair[SCIXMLAttributeTransformKeyValue];
+        if (nameValuePair.isDictionary == NO) {
+            return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                         format:@"%s requires a name-value dictionary", __PRETTY_FUNCTION__];
+        }
+
+        NSString *name = nameValuePair[SCIXMLAttributeTransformKeyName];
+        id value       = nameValuePair[SCIXMLAttributeTransformKeyValue];
 
         return [nameSet containsObject:name] ^ invert ? value : nil;
     };
@@ -188,11 +260,11 @@ NS_ASSUME_NONNULL_END
 
 #pragma mark - Initializers
 
-- (instancetype)initWithTypeTransform:(id _Nullable (^_Nullable)(NSString *))typeTransform
-                        nameTransform:(id _Nullable (^_Nullable)(NSString *))nameTransform
-                        textTransform:(id _Nullable (^_Nullable)(NSString *))textTransform
-                   attributeTransform:(id _Nullable (^_Nullable)(NSDictionary *))attributeTransform
-                        nodeTransform:(id           (^_Nullable)(NSDictionary *))nodeTransform {
+- (instancetype)initWithTypeTransform:(id _Nullable (^_Nullable)(id))typeTransform
+                        nameTransform:(id _Nullable (^_Nullable)(id))nameTransform
+                        textTransform:(id _Nullable (^_Nullable)(id))textTransform
+                   attributeTransform:(id _Nullable (^_Nullable)(id))attributeTransform
+                        nodeTransform:(id           (^_Nullable)(id))nodeTransform {
 
     self = [super init];
     if (self) {
