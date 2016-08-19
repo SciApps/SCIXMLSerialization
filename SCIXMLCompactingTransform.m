@@ -67,7 +67,7 @@ NS_ASSUME_NONNULL_END
             case SCIXMLTransformCombinationConflictResolutionStrategyCompose: {
                 newSubtransform = ^id _Nullable(id value) {
                     NSObject *tmp = rhsSubtransform(value);
-                    return tmp == nil || tmp.isError ? tmp : lhsSubtransform(tmp);
+                    return tmp == nil || tmp.sci_isError ? tmp : lhsSubtransform(tmp);
                 };
                 break;
             }
@@ -124,7 +124,7 @@ NS_ASSUME_NONNULL_END
 
     transform.nodeTransform = ^id (NSDictionary *immutableNode) {
         // the node must be a dictionary...
-        if (immutableNode.isDictionary == NO) {
+        if (immutableNode.sci_isDictionary == NO) {
             return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
                                          format:@"%s: node must be a dictionary", __PRETTY_FUNCTION__];
         }
@@ -137,12 +137,12 @@ NS_ASSUME_NONNULL_END
             return immutableNode;
         }
 
-        if (attributes.isDictionary == NO) {
+        if (attributes.sci_isDictionary == NO) {
             return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
                                          format:@"%s: attributes must be a dictionary", __PRETTY_FUNCTION__];
         }
 
-        NSMutableDictionary *node = [immutableNode mutableCopy];
+        NSMutableDictionary *node = [immutableNode sci_mutableCopyOrSelf];
 
         // remove 'attributes' dictionary from new node
         node[SCIXMLNodeKeyAttributes] = nil;
@@ -166,22 +166,82 @@ NS_ASSUME_NONNULL_END
     return transform;
 }
 
-+ (instancetype)childFlatteningTransformWithUnnamedNodeKeys:(NSDictionary<NSString *, NSString *> *_Nullable)unnamedNodeKeys {
-    NSAssert(NO, @"Unimplemented");
-    return nil;
++ (instancetype)childFlatteningTransform {
+    SCIXMLCompactingTransform *transform = [self new];
+
+    transform.nodeTransform = ^id (NSDictionary *immutableNode) {
+        if (immutableNode.sci_isDictionary == NO) {
+            return immutableNode;
+        }
+
+        NSArray<NSString *> *children = immutableNode[SCIXMLNodeKeyChildren];
+
+        // Spare a mutableCopy if the children are already removed
+        if (children == nil) {
+            return immutableNode;
+        }
+
+        // If the 'children' member is used for something different, don't touch it
+        if (children.sci_isArray == NO) {
+            return immutableNode;
+        }
+
+        // Leve flattened text nodes alone
+        if (children.count == 1 && children.firstObject.sci_isString) {
+            return immutableNode;
+        }
+
+        // Everything is awesome, so we can start collapsing the structure.
+        // Start by removing the 'children' array.
+        NSMutableDictionary *node = [immutableNode sci_mutableCopyOrSelf];
+        node[SCIXMLNodeKeyChildren] = nil;
+
+        for (NSDictionary *child in children) {
+            if (child.sci_isDictionary == NO) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"%s: non-string child nodes must be dictionaries",
+                                                    __PRETTY_FUNCTION__];
+            }
+
+            NSString *name = child[SCIXMLNodeKeyName];
+            if (name.sci_isString == NO) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"%s: child nodes must have a string name",
+                                                    __PRETTY_FUNCTION__];
+            }
+
+            // TODO(H2CO3): implement grouping of children by name
+            if (child.sci_isSingleChildStringNode) {
+                NSArray *children = child[SCIXMLNodeKeyChildren];
+                node[name] = children.firstObject;
+            } else {
+                // Remove the name of the child (it has become redundant).
+                // Optimize for the common case where the child has been created by built-in
+                // transformations and is therefore mutable. Avoid copying in that case.
+                NSMutableDictionary *mutableChild = [child sci_mutableCopyOrSelf];
+                mutableChild[name] = nil;
+                node[name] = mutableChild;
+            }
+        }
+
+        return node;
+    };
+
+    return transform;
 }
 
 + (instancetype)textNodeFlatteningTransform {
     SCIXMLCompactingTransform *transform = [self new];
 
     transform.nodeTransform = ^id (NSDictionary *node) {
-        if (node.isDictionary == NO) {
+        if (node.sci_isDictionary == NO) {
             return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
                                          format:@"%s: node must be a dictionary", __PRETTY_FUNCTION__];
         }
 
-        // If the node is a text node, collapse it into its text contents
-        if ([node[SCIXMLNodeKeyType] isEqual:SCIXMLNodeTypeText]) {
+        // If the node is a text-ish node, collapse it into its text contents
+        // TODO(H2CO3): ensure that node[SCIXMLNodeKeyType] is not nil
+        if (node.sci_isTextOrCDATANode) {
             return node[SCIXMLNodeKeyText] ?: @""; // node transform must not yield nil
         }
 
@@ -193,6 +253,7 @@ NS_ASSUME_NONNULL_END
 }
 
 + (instancetype)commentFilterTransform {
+    // TODO(H2CO3): implement
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
@@ -208,11 +269,13 @@ NS_ASSUME_NONNULL_END
 }
 
 + (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap {
+    // TODO(H2CO3): implement
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
 
 + (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap {
+    // TODO(H2CO3): implement
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
@@ -234,11 +297,12 @@ NS_ASSUME_NONNULL_END
     id <SCIXMLCompactingTransform> transform = [self new];
 
     transform.attributeTransform = ^id _Nullable (NSDictionary *nameValuePair) {
-        if (nameValuePair.isDictionary == NO) {
+        if (nameValuePair.sci_isDictionary == NO) {
             return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
                                          format:@"%s requires a name-value dictionary", __PRETTY_FUNCTION__];
         }
 
+        // TODO(H2CO3): check that name is not nil
         NSString *name = nameValuePair[SCIXMLAttributeTransformKeyName];
         id value       = nameValuePair[SCIXMLAttributeTransformKeyValue];
 
@@ -249,11 +313,13 @@ NS_ASSUME_NONNULL_END
 }
 
 + (instancetype)memberFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
+    // TODO(H2CO3): implement
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
 
 + (instancetype)memberFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist {
+    // TODO(H2CO3): implement
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
@@ -284,6 +350,5 @@ NS_ASSUME_NONNULL_END
                     attributeTransform:nil
                          nodeTransform:nil];
 }
-
 
 @end

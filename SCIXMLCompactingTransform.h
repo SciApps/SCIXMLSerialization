@@ -117,18 +117,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 // A transform that removes the 'children' array from a parent node and puts
 // its child nodes directly into it, where the keys are the tag names
-// of element children.
+// of element children. The children will also have their name removed.
 // If a child with a specific tag name appears more than once in the parent node,
 // then all children with that tag name will be grouped into an NSArray.
-// Non-element children (e.g. text and CDATA nodes, comments and entity references)
-// will be added with keys that correspond to their types (SCIXMLNodeType*) in the
-// 'unnamedNodeKeys' dictionary. If no such key is found in the 'unnamedNodeKeys'
-// dictionary, then an error is returned.
+// TODO(H2CO3): document behavior when encountering a malformed tree
 // This is a node transform.
-+ (instancetype)childFlatteningTransformWithUnnamedNodeKeys:(NSDictionary<NSString *, NSString *> *_Nullable)unnamedNodeKeys;
++ (instancetype)childFlatteningTransform;
 
-// This transform flattens text nodes: it replaces them with just their string content.
-// TODO(H2CO3): should this support CDATA nodes (with identical semantics)?
+// This transform flattens text and CDATA nodes: it replaces them with just their string content.
 //
 // For example, the following XML:
 //

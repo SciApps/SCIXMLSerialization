@@ -13,6 +13,7 @@ int main(int argc, char *argv[])
             SCIXMLCompactingTransform.attributeFlatteningTransform,
             SCIXMLCompactingTransform.elementTypeFilterTransform,
             SCIXMLCompactingTransform.textNodeFlatteningTransform,
+            SCIXMLCompactingTransform.childFlatteningTransform,
         ];
 
         id <SCIXMLCompactingTransform> transform;
@@ -23,7 +24,7 @@ int main(int argc, char *argv[])
         id obj = [SCIXMLSerialization compactedObjectWithXMLString:inXML
                                                compactingTransform:transform
                                                              error:&error];
-        NSLog(@"%@", obj ?: error);
+        NSLog(@"%@", obj ?: error.localizedDescription);
 
 
         // NSError *error = nil;

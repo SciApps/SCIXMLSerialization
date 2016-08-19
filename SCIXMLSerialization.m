@@ -360,7 +360,7 @@ NS_ASSUME_NONNULL_END
                 NSString *attrValue = attributes[attrName];
 
                 // Both keys and values _must_ be strings!
-                if (attrName.isString && attrValue.isString) {
+                if (attrName.sci_isString && attrValue.sci_isString) {
                     if (xmlTextWriterWriteAttribute(writer, XS(attrName.UTF8String), XS(attrValue.UTF8String)) < 0) {
                         if (error) {
                             *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeWriteFailed
@@ -379,7 +379,7 @@ NS_ASSUME_NONNULL_END
 
             // Write children recursively
             for (NSDictionary *child in children) {
-                if (child.isDictionary) {
+                if (child.sci_isDictionary) {
                     if ([self writeXMLNode:child writer:writer error:error] == NO) {
                         return NO;
                     }
@@ -470,7 +470,7 @@ NS_ASSUME_NONNULL_END
 
     // We know that the canonical dictionary is mutable; we use this knowledge
     // to optimize the traversal by eliminating unnecessary memory allocations.
-    assert(canonical.isMutableDictionary);
+    assert(canonical.sci_isMutableDictionary);
     NSMutableDictionary *node = (NSMutableDictionary *)canonical;
 
     // Perform a bottom-up traversal of the node tree.
@@ -479,7 +479,7 @@ NS_ASSUME_NONNULL_END
     // is guaranteed to remain canonical, since the transform has no chance of
     // modifying it (for obvious temporal reasons).
     NSMutableArray *children = node[SCIXMLNodeKeyChildren];
-    assert(children == nil || children.isMutableArray);
+    assert(children == nil || children.sci_isMutableArray);
 
     // So, we recurse _first_, ...
     for (NSUInteger i = 0; i < children.count; i++) {
@@ -499,7 +499,7 @@ NS_ASSUME_NONNULL_END
     if (transform.typeTransform) {
         id value = transform.typeTransform(node[SCIXMLNodeKeyType]);
 
-        if ([value isError]) {
+        if ([value sci_isError]) {
             if (error) {
                 *error = value;
             }
@@ -513,7 +513,7 @@ NS_ASSUME_NONNULL_END
     if (node[SCIXMLNodeKeyName] && transform.nameTransform) {
         id value = transform.nameTransform(node[SCIXMLNodeKeyName]);
 
-        if ([value isError]) {
+        if ([value sci_isError]) {
             if (error) {
                 *error = value;
             }
@@ -527,7 +527,7 @@ NS_ASSUME_NONNULL_END
     if (node[SCIXMLNodeKeyText] && transform.textTransform) {
         id value = transform.textTransform(node[SCIXMLNodeKeyText]);
 
-        if ([value isError]) {
+        if ([value sci_isError]) {
             if (error) {
                 *error = value;
             }
@@ -541,12 +541,12 @@ NS_ASSUME_NONNULL_END
     NSMutableDictionary *attributes = node[SCIXMLNodeKeyAttributes];
 
     if (attributes && transform.attributeTransform) {
-        assert(attributes.isMutableDictionary);
+        assert(attributes.sci_isMutableDictionary);
 
         NSArray<NSString *> *attributeNames = attributes.allKeys;
 
         for (NSString *attrName in attributeNames) {
-            assert(attrName.isString);
+            assert(attrName.sci_isString);
 
             id value = transform.attributeTransform(
                 @{
@@ -555,7 +555,7 @@ NS_ASSUME_NONNULL_END
                 }
             );
 
-            if ([value isError]) {
+            if ([value sci_isError]) {
                 if (error) {
                     *error = value;
                 }
@@ -573,7 +573,7 @@ NS_ASSUME_NONNULL_END
         id value = transform.nodeTransform(node);
         NSAssert(value != nil, @"nodeTransform may not return nil, only a valid object or an NSError");
 
-        if ([value isError]) {
+        if ([value sci_isError]) {
             if (error) {
                 *error = value;
             }
