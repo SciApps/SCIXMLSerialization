@@ -13,8 +13,30 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// Keys for retrieving the name and the value of an attribute from within an attribute transform
 FOUNDATION_EXPORT NSString *const SCIXMLAttributeTransformKeyName;
 FOUNDATION_EXPORT NSString *const SCIXMLAttributeTransformKeyValue;
+
+// Parser type strings
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeNull;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeIdentity;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeObjCBool;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeCXXBool;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeBool;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeDecimal;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeBinary;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeOctal;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeHex;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeInteger;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeFloating;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeNumber;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeEscapeC;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeUnescapeC;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeEscapeXML;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeUnescapeXML;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeTimestamp;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeDate;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeBase64;
 
 
 @protocol SCIXMLCompactingTransform <NSObject>
@@ -165,25 +187,25 @@ NS_ASSUME_NONNULL_BEGIN
 // This is an attribute transform.
 // The type map is a dictionary of attribute names to type specifier strings.
 // The following type specifier strings are currently supported:
-//   null:       removes the key-value pair altogether, can be used for blacklisting filtering too
-//   identity:   return the value verbatim, basically the identity transform, does nothing
-//   objc_bool:  "YES" is parsed as @(YES), "NO" is parsed as @(NO), otherwise return an error
-//   cxx_bool:   "true" is parsed as @(true), "false" is parsed as @(false), otherwise return an error
-//   bool:       objc_bool or cxx_bool, whichever works
-//   decimal:    base-10 signed or unsigned integer, as parsed by strto[u]l(); error if unparseable
-//   binary:     base-2 unsigned integer as parsed by strtoul(); may have 0b prefix; error if unparseable
-//   octal:      base-8 unsigned integer as parsed by strtoul(); may have 0o prefix; error if unparseable
-//   hex:        base-16 unsigned integer as parsed by strtoul(); may have 0x prefix; error if unparseable
-//   integer:    any of decimal, binary, octal, hex, as specified by its prefix (0b, 0o, 0x or none)
-//   floating:   base-10 floating-point number, as parsed by strtod(); error if unparseable
-//   number:     integer or floating
-//   escape_c:   escape the string as if it were written as a C string literal
-//   unesc_c:    inverse of escape_c
-//   escape_xml: escape the string as if it were to be placed inside an XML text element
-//   unesc_xml:  inverse of escape_xml
-//   timestamp:  UNIX time stamp (decimal integer or double), converted to NSDate; error if unparseable
-//   date:       ISO-8601 formatted date, converted to NSDate; error if unparseable
-//   base64:     Base-64 encoded string, converted to NSData; return error if encoding is invalid
+//   Null:        removes the key-value pair altogether, can be used for blacklisting filtering too
+//   Identity:    return the value verbatim, basically the identity transform, does nothing
+//   ObjCBool:    "YES" is parsed as @(YES), "NO" is parsed as @(NO), otherwise return an error
+//   CXXBool:     "true" is parsed as @(true), "false" is parsed as @(false), otherwise return an error
+//   Bool:        ObjCBool or CXXBool, whichever works
+//   Decimal:     base-10 signed or unsigned integer, as parsed by strto[u]l(); error if unparseable
+//   Binary:      base-2 unsigned integer as parsed by strtoul(); may have 0b prefix; error if unparseable
+//   Octal:       base-8 unsigned integer as parsed by strtoul(); may have 0o prefix; error if unparseable
+//   Hex:         base-16 unsigned integer as parsed by strtoul(); may have 0x prefix; error if unparseable
+//   Integer:     any of Decimal, Binary, Octal, Hex, as specified by its prefix (0b, 0o, 0x or none)
+//   Floating:    base-10 floating-point number, as parsed by strtod(); error if unparseable
+//   Number:      Integer or Floating
+//   EscapeC:     escape the string as if it were written as a C string literal
+//   UnescapeC:   inverse of EscapeC
+//   EscapeXML:   escape the string as if it were to be placed inside an XML text element
+//   UnescapeXML: inverse of EscapeXML
+//   Timestamp:   UNIX time stamp (decimal integer or double), converted to NSDate; error if unparseable
+//   Date:        ISO-8601 formatted date, converted to NSDate; error if unparseable
+//   Base64:      Base-64 encoded string, converted to NSData; return error if encoding is invalid
 + (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap;
 
 // Similar to the attribute parser, but operates on immediate members of the node.

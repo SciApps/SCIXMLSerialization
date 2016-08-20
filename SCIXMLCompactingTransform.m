@@ -18,6 +18,26 @@
 NSString *const SCIXMLAttributeTransformKeyName = @"name";
 NSString *const SCIXMLAttributeTransformKeyValue = @"value";
 
+NSString *const SCIXMLParserTypeNull = @"Null";
+NSString *const SCIXMLParserTypeIdentity = @"Identity";
+NSString *const SCIXMLParserTypeObjCBool = @"ObjCBool";
+NSString *const SCIXMLParserTypeCXXBool = @"CXXBool";
+NSString *const SCIXMLParserTypeBool = @"Bool";
+NSString *const SCIXMLParserTypeDecimal = @"Decimal";
+NSString *const SCIXMLParserTypeBinary = @"Binary";
+NSString *const SCIXMLParserTypeOctal = @"Octal";
+NSString *const SCIXMLParserTypeHex = @"Hex";
+NSString *const SCIXMLParserTypeInteger = @"Integer";
+NSString *const SCIXMLParserTypeFloating = @"Floating";
+NSString *const SCIXMLParserTypeNumber = @"Number";
+NSString *const SCIXMLParserTypeEscapeC = @"EscapeC";
+NSString *const SCIXMLParserTypeUnescapeC = @"UnescapeC";
+NSString *const SCIXMLParserTypeEscapeXML = @"EscapeXML";
+NSString *const SCIXMLParserTypeUnescapeXML = @"UnescapeXML";
+NSString *const SCIXMLParserTypeTimestamp = @"Timestamp";
+NSString *const SCIXMLParserTypeDate = @"Date";
+NSString *const SCIXMLParserTypeBase64 = @"Base64";
+
 
 NS_ASSUME_NONNULL_BEGIN
 @interface SCIXMLCompactingTransform ()
@@ -286,7 +306,7 @@ NS_ASSUME_NONNULL_END
 
 + (NSDictionary<NSString *, id (^)(id)> *)parserSubtransforms {
     static NSDictionary<NSString *, id (^)(id)> *subtransforms = nil;
-    dispatch_once_t token;
+    static dispatch_once_t token;
 
     // thread-safely cache attribute and member parser functions
     dispatch_once(&token, ^{
