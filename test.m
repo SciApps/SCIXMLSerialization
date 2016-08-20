@@ -9,7 +9,13 @@ int main(int argc, char *argv[])
                                               usedEncoding:&enc
                                                      error:NULL];
 
+        NSDictionary<NSString *, NSString *> *typeMap = @{
+            @"bar": SCIXMLParserTypeObjCBool,
+            @"baz": SCIXMLParserTypeCXXBool,
+        };
         NSArray<id<SCIXMLCompactingTransform>> *transforms = @[
+            [SCIXMLCompactingTransform attributeParserTransformWithTypeMap:typeMap
+                                                  unspecifiedTransformType:SCIXMLParserTypeIdentity],
             SCIXMLCompactingTransform.attributeFlatteningTransform,
             SCIXMLCompactingTransform.elementTypeFilterTransform,
             SCIXMLCompactingTransform.textNodeFlatteningTransform,

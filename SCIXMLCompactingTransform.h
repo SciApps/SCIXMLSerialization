@@ -18,6 +18,7 @@ FOUNDATION_EXPORT NSString *const SCIXMLAttributeTransformKeyName;
 FOUNDATION_EXPORT NSString *const SCIXMLAttributeTransformKeyValue;
 
 // Parser type strings
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeError;
 FOUNDATION_EXPORT NSString *const SCIXMLParserTypeNull;
 FOUNDATION_EXPORT NSString *const SCIXMLParserTypeIdentity;
 FOUNDATION_EXPORT NSString *const SCIXMLParserTypeObjCBool;
@@ -186,7 +187,10 @@ NS_ASSUME_NONNULL_BEGIN
 // A transform that attempts to parse attribute values as certain types.
 // This is an attribute transform.
 // The type map is a dictionary of attribute names to type specifier strings.
+// For attributes with a name not contained in the type specification dictionary,
+// the transform for the unspecifiedTransformType key will be called.
 // The following type specifier strings are currently supported:
+//   Error:       should be used for returning an error for unspecified attributes
 //   Null:        removes the key-value pair altogether, can be used for blacklisting filtering too
 //   Identity:    return the value verbatim, basically the identity transform, does nothing
 //   ObjCBool:    "YES" is parsed as @(YES), "NO" is parsed as @(NO), otherwise return an error
@@ -206,11 +210,13 @@ NS_ASSUME_NONNULL_BEGIN
 //   Timestamp:   UNIX time stamp (decimal integer or double), converted to NSDate; error if unparseable
 //   Date:        ISO-8601 formatted date, converted to NSDate; error if unparseable
 //   Base64:      Base-64 encoded string, converted to NSData; return error if encoding is invalid
-+ (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap;
++ (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
+                           unspecifiedTransformType:(NSString *)unspecifiedTransformType;
 
 // Similar to the attribute parser, but operates on immediate members of the node.
 // This is a node transform.
-+ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap;
++ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
+                        unspecifiedTransformType:(NSString *)unspecifiedTransformType;
 
 // Filtering attributes. The whitelisting variant keeps only the attributes of which
 // the name is in the whitelist; the blacklisting one throws away only those of which

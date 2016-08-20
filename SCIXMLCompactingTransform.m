@@ -8,6 +8,7 @@
 // Copyright (C) SciApps.io, 2016.
 //
 
+#import <stdbool.h>
 #import <objc/runtime.h>
 
 #import "SCIXMLCompactingTransform.h"
@@ -18,6 +19,7 @@
 NSString *const SCIXMLAttributeTransformKeyName = @"name";
 NSString *const SCIXMLAttributeTransformKeyValue = @"value";
 
+NSString *const SCIXMLParserTypeError = @"Error";
 NSString *const SCIXMLParserTypeNull = @"Null";
 NSString *const SCIXMLParserTypeIdentity = @"Identity";
 NSString *const SCIXMLParserTypeObjCBool = @"ObjCBool";
@@ -45,8 +47,8 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)attributeFilterTransformWithNameList:(NSArray<NSString *> *)nameList
                           invertContainmentCondition:(BOOL)invert;
 
-+ (NSDictionary<NSString *, id (^)(id)> *)parserSubtransforms;
-+ (NSDictionary<NSString *, id (^)(id)> *)unsafeLoadParserSubtransforms;
++ (NSDictionary<NSString *, id _Nullable (^)(id)> *)parserSubtransforms;
++ (NSDictionary<NSString *, id _Nullable (^)(id)> *)unsafeLoadParserSubtransforms;
 
 @end
 NS_ASSUME_NONNULL_END
@@ -285,27 +287,54 @@ NS_ASSUME_NONNULL_END
 + (instancetype)elementTypeFilterTransform {
     SCIXMLCompactingTransform *transform = [self new];
 
-    transform.typeTransform = ^_Nullable id(id type) {
+    transform.typeTransform = ^id _Nullable (id type) {
         return [type isEqual:SCIXMLNodeTypeElement] ? nil : type;
     };
 
     return transform;
 }
 
-+ (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap {
++ (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
+                           unspecifiedTransformType:(NSString *)unspecifiedTransformType {
+
+    NSParameterAssert(typeMap);
+    NSParameterAssert(unspecifiedTransformType);
+
+    SCIXMLCompactingTransform *transform = [self new];
+
+    transform.attributeTransform = ^id _Nullable (NSDictionary *nameValuePair) {
+        if (nameValuePair.sci_isDictionary == NO) {
+            return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                         format:@"%s requires a name-value dictionary", __PRETTY_FUNCTION__];
+        }
+
+        // TODO(H2CO3): check that name is not nil and that it is an NSString
+        NSString *name = nameValuePair[SCIXMLAttributeTransformKeyName];
+        id value       = nameValuePair[SCIXMLAttributeTransformKeyValue];
+
+        NSString *transformName = typeMap[name] ?: unspecifiedTransformType;
+        id _Nullable (^subtransform)(id) = self.parserSubtransforms[transformName];
+
+        // TODO(H2CO3): check that subtransform is not nil
+        return subtransform(value);
+    };
+
+    return transform;
+}
+
++ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
+                        unspecifiedTransformType:(NSString *)unspecifiedTransformType {
+
     // TODO(H2CO3): implement
+    NSParameterAssert(typeMap);
+    NSParameterAssert(unspecifiedTransformType);
+
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
 
-+ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap {
-    // TODO(H2CO3): implement
-    NSAssert(NO, @"Unimplemented");
-    return nil;
-}
-
-+ (NSDictionary<NSString *, id (^)(id)> *)parserSubtransforms {
-    static NSDictionary<NSString *, id (^)(id)> *subtransforms = nil;
++ (NSDictionary<NSString *, id _Nullable (^)(id)> *)parserSubtransforms {
+    static NSDictionary<NSString *, id _Nullable (^)(id)> *subtransforms = nil;
     static dispatch_once_t token;
 
     // thread-safely cache attribute and member parser functions
@@ -316,22 +345,61 @@ NS_ASSUME_NONNULL_END
     return subtransforms;
 }
 
-+ (NSDictionary<NSString *, id (^)(id)> *)unsafeLoadParserSubtransforms {
-    return @{};
++ (NSDictionary<NSString *, id _Nullable (^)(id)> *)unsafeLoadParserSubtransforms {
+    return @{
+        SCIXMLParserTypeError: ^id _Nullable (id input) {
+            return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                         format:@"no type specification for attribute or node: %@", input];
+        },
+        SCIXMLParserTypeNull: ^id _Nullable (id unused) {
+            return nil;
+        },
+        SCIXMLParserTypeIdentity: ^id _Nullable (id input) {
+            return input;
+        },
+        SCIXMLParserTypeObjCBool: ^id _Nullable (id input) {
+            NSDictionary<NSString *, NSNumber *> *map = @{ @"YES": @YES, @"NO": @NO };
+            return map[input] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"not an Obj-C BOOL string: %@", input];
+        },
+        SCIXMLParserTypeCXXBool: ^id _Nullable (id input) {
+            NSDictionary<NSString *, NSNumber *> *map = @{ @"true": @true, @"false": @false };
+            return map[input] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"not a C++ bool string: %@", input];
+        },
+        SCIXMLParserTypeBool: ^id _Nullable (id input) {
+            NSDictionary<NSString *, NSNumber *> *map = @{
+                @"YES":   @YES,
+                @"NO":    @NO,
+                @"true":  @true,
+                @"false": @false,
+            };
+
+            return map[input] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"not a boolean string: %@", input];
+        },
+        // TODO(H2CO3): implement all parser transforms
+    };
 };
 
 + (instancetype)attributeFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
+    NSParameterAssert(whitelist);
+
     return [self attributeFilterTransformWithNameList:whitelist
                            invertContainmentCondition:NO];
 }
 
 + (instancetype)attributeFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist {
+    NSParameterAssert(blacklist);
+
     return [self attributeFilterTransformWithNameList:blacklist
                            invertContainmentCondition:YES];
 }
 
 + (instancetype)attributeFilterTransformWithNameList:(NSArray<NSString *> *)nameList
                           invertContainmentCondition:(BOOL)invert {
+
+    NSParameterAssert(nameList);
 
     NSSet<NSString *> *nameSet = [NSSet setWithArray:nameList];
     id <SCIXMLCompactingTransform> transform = [self new];
@@ -354,12 +422,14 @@ NS_ASSUME_NONNULL_END
 
 + (instancetype)memberFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
     // TODO(H2CO3): implement
+    NSParameterAssert(whitelist);
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
 
 + (instancetype)memberFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist {
     // TODO(H2CO3): implement
+    NSParameterAssert(blacklist);
     NSAssert(NO, @"Unimplemented");
     return nil;
 }

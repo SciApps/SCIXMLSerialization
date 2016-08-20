@@ -1,5 +1,5 @@
 <root>
-  <foo bar="BAR" baz="BAZ">
+  <foo bar="YES" baz="false">
     <info>Qux!</info>
     <woot>Dux!</woot>
     <nested>
