@@ -166,6 +166,7 @@ NS_ASSUME_NONNULL_BEGIN
 // The type map is a dictionary of attribute names to type specifier strings.
 // The following type specifier strings are currently supported:
 //   null:       removes the key-value pair altogether, can be used for blacklisting filtering too
+//   identity:   return the value verbatim, basically the identity transform, does nothing
 //   objc_bool:  "YES" is parsed as @(YES), "NO" is parsed as @(NO), otherwise return an error
 //   cxx_bool:   "true" is parsed as @(true), "false" is parsed as @(false), otherwise return an error
 //   bool:       objc_bool or cxx_bool, whichever works
@@ -175,7 +176,7 @@ NS_ASSUME_NONNULL_BEGIN
 //   hex:        base-16 unsigned integer as parsed by strtoul(); may have 0x prefix; error if unparseable
 //   integer:    any of decimal, binary, octal, hex, as specified by its prefix (0b, 0o, 0x or none)
 //   floating:   base-10 floating-point number, as parsed by strtod(); error if unparseable
-//   identity:   return the value verbatim, basically the identity transform, does nothing
+//   number:     integer or floating
 //   escape_c:   escape the string as if it were written as a C string literal
 //   unesc_c:    inverse of escape_c
 //   escape_xml: escape the string as if it were to be placed inside an XML text element

@@ -23,7 +23,8 @@
 @property (nonatomic, readonly) BOOL sci_isError;
 
 @property (nonatomic, readonly) BOOL sci_isTextOrCDATANode;
-@property (nonatomic, readonly) BOOL sci_isSingleChildStringNode;
+@property (nonatomic, readonly) BOOL sci_isOneChildStringNode;
+@property (nonatomic, readonly) BOOL sci_isOneChildCanonicalStringNode;
 
 // Returns the object unchanged if it's mutable, a mutableCopy thereof otherwise.
 // (this should really not be implemented on NSObject but on a specific

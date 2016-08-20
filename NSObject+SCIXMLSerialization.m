@@ -77,7 +77,25 @@ static BOOL SCIDictionaryHasExactKeys(
     return nodeType && [types containsObject:nodeType];
 }
 
-- (BOOL)sci_isSingleChildStringNode {
+- (BOOL)sci_isOneChildStringNode {
+    // A node is a one-child string node if it has a name
+    // and a single child of string type.
+
+    if (self.sci_isDictionary == NO) {
+        return NO;
+    }
+
+    NSDictionary *dictSelf = (NSDictionary *)self;
+    NSArray<NSString *> *children = dictSelf[SCIXMLNodeKeyChildren];
+    NSString *name = dictSelf[SCIXMLNodeKeyName];
+
+    return children.sci_isArray
+        && children.count == 1
+        && children.firstObject.sci_isString
+        && name.sci_isString;
+}
+
+- (BOOL)sci_isOneChildCanonicalStringNode {
     if (self.sci_isDictionary == NO) {
         return NO;
     }
@@ -88,17 +106,8 @@ static BOOL SCIDictionaryHasExactKeys(
     // keys, then it cannot just be replaced by its text child, because
     // that would result in the extra information being lost altogether.
     // These two keys are, however, required.
-    if (SCIDictionaryHasExactKeys(dictSelf, @[ SCIXMLNodeKeyName, SCIXMLNodeKeyChildren ]) == NO) {
-        return NO;
-    }
-
-    NSArray<NSString *> *children = dictSelf[SCIXMLNodeKeyChildren];
-    NSString *name = dictSelf[SCIXMLNodeKeyName];
-
-    return children.sci_isArray
-        && children.count == 1
-        && children.firstObject.sci_isString
-        && name.sci_isString;
+    return self.sci_isOneChildStringNode
+        && SCIDictionaryHasExactKeys(dictSelf, @[ SCIXMLNodeKeyName, SCIXMLNodeKeyChildren ]);
 }
 
 - (id)sci_mutableCopyOrSelf {

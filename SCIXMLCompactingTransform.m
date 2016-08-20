@@ -25,6 +25,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)attributeFilterTransformWithNameList:(NSArray<NSString *> *)nameList
                           invertContainmentCondition:(BOOL)invert;
 
++ (NSDictionary<NSString *, id (^)(id)> *)parserSubtransforms;
++ (NSDictionary<NSString *, id (^)(id)> *)unsafeLoadParserSubtransforms;
+
 @end
 NS_ASSUME_NONNULL_END
 
@@ -54,6 +57,7 @@ NS_ASSUME_NONNULL_END
         id _Nullable (^rhsSubtransform)(id) = [rhs valueForKey:name];
         id _Nullable (^newSubtransform)(id) = nil;
 
+        // If both transforms have the given subtransform, there's a conflict.
         if (lhsSubtransform && rhsSubtransform) {
             switch (strategy) {
             case SCIXMLTransformCombinationConflictResolutionStrategyUseLeft: {
@@ -187,7 +191,7 @@ NS_ASSUME_NONNULL_END
         }
 
         // Leve flattened text nodes alone
-        if (children.count == 1 && children.firstObject.sci_isString) {
+        if (immutableNode.sci_isOneChildStringNode) {
             return immutableNode;
         }
 
@@ -211,15 +215,15 @@ NS_ASSUME_NONNULL_END
             }
 
             // TODO(H2CO3): implement grouping of children by name
-            if (child.sci_isSingleChildStringNode) {
-                NSArray *children = child[SCIXMLNodeKeyChildren];
+            if (child.sci_isOneChildCanonicalStringNode) {
+                NSArray<NSString *> *children = child[SCIXMLNodeKeyChildren];
                 node[name] = children.firstObject;
             } else {
                 // Remove the name of the child (it has become redundant).
                 // Optimize for the common case where the child has been created by built-in
                 // transformations and is therefore mutable. Avoid copying in that case.
                 NSMutableDictionary *mutableChild = [child sci_mutableCopyOrSelf];
-                mutableChild[name] = nil;
+                mutableChild[SCIXMLNodeKeyName] = nil;
                 node[name] = mutableChild;
             }
         }
@@ -279,6 +283,22 @@ NS_ASSUME_NONNULL_END
     NSAssert(NO, @"Unimplemented");
     return nil;
 }
+
++ (NSDictionary<NSString *, id (^)(id)> *)parserSubtransforms {
+    static NSDictionary<NSString *, id (^)(id)> *subtransforms = nil;
+    dispatch_once_t token;
+
+    // thread-safely cache attribute and member parser functions
+    dispatch_once(&token, ^{
+        subtransforms = [self unsafeLoadParserSubtransforms];
+    });
+
+    return subtransforms;
+}
+
++ (NSDictionary<NSString *, id (^)(id)> *)unsafeLoadParserSubtransforms {
+    return @{};
+};
 
 + (instancetype)attributeFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
     return [self attributeFilterTransformWithNameList:whitelist
