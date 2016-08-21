@@ -16,29 +16,29 @@
 #import "NSObject+SCIXMLSerialization.h"
 
 
-NSString *const SCIXMLAttributeTransformKeyName = @"name";
+NSString *const SCIXMLAttributeTransformKeyName  = @"name";
 NSString *const SCIXMLAttributeTransformKeyValue = @"value";
 
-NSString *const SCIXMLParserTypeError = @"Error";
-NSString *const SCIXMLParserTypeNull = @"Null";
-NSString *const SCIXMLParserTypeIdentity = @"Identity";
-NSString *const SCIXMLParserTypeObjCBool = @"ObjCBool";
-NSString *const SCIXMLParserTypeCXXBool = @"CXXBool";
-NSString *const SCIXMLParserTypeBool = @"Bool";
-NSString *const SCIXMLParserTypeDecimal = @"Decimal";
-NSString *const SCIXMLParserTypeBinary = @"Binary";
-NSString *const SCIXMLParserTypeOctal = @"Octal";
-NSString *const SCIXMLParserTypeHex = @"Hex";
-NSString *const SCIXMLParserTypeInteger = @"Integer";
-NSString *const SCIXMLParserTypeFloating = @"Floating";
-NSString *const SCIXMLParserTypeNumber = @"Number";
-NSString *const SCIXMLParserTypeEscapeC = @"EscapeC";
-NSString *const SCIXMLParserTypeUnescapeC = @"UnescapeC";
-NSString *const SCIXMLParserTypeEscapeXML = @"EscapeXML";
-NSString *const SCIXMLParserTypeUnescapeXML = @"UnescapeXML";
-NSString *const SCIXMLParserTypeTimestamp = @"Timestamp";
-NSString *const SCIXMLParserTypeDate = @"Date";
-NSString *const SCIXMLParserTypeBase64 = @"Base64";
+NSString *const SCIXMLParserTypeError            = @"Error";
+NSString *const SCIXMLParserTypeNull             = @"Null";
+NSString *const SCIXMLParserTypeIdentity         = @"Identity";
+NSString *const SCIXMLParserTypeObjCBool         = @"ObjCBool";
+NSString *const SCIXMLParserTypeCXXBool          = @"CXXBool";
+NSString *const SCIXMLParserTypeBool             = @"Bool";
+NSString *const SCIXMLParserTypeDecimal          = @"Decimal";
+NSString *const SCIXMLParserTypeBinary           = @"Binary";
+NSString *const SCIXMLParserTypeOctal            = @"Octal";
+NSString *const SCIXMLParserTypeHex              = @"Hex";
+NSString *const SCIXMLParserTypeInteger          = @"Integer";
+NSString *const SCIXMLParserTypeFloating         = @"Floating";
+NSString *const SCIXMLParserTypeNumber           = @"Number";
+NSString *const SCIXMLParserTypeEscapeC          = @"EscapeC";
+NSString *const SCIXMLParserTypeUnescapeC        = @"UnescapeC";
+NSString *const SCIXMLParserTypeEscapeXML        = @"EscapeXML";
+NSString *const SCIXMLParserTypeUnescapeXML      = @"UnescapeXML";
+NSString *const SCIXMLParserTypeTimestamp        = @"Timestamp";
+NSString *const SCIXMLParserTypeDate             = @"Date";
+NSString *const SCIXMLParserTypeBase64           = @"Base64";
 
 
 NS_ASSUME_NONNULL_BEGIN
