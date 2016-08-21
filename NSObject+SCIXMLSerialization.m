@@ -10,16 +10,7 @@
 
 #import "NSObject+SCIXMLSerialization.h"
 #import "SCIXMLSerialization.h"
-
-
-static BOOL SCIDictionaryHasExactKeys(
-    NSDictionary<NSString *, id> *dictionary,
-    NSArray<NSString *> *keys
-) {
-    NSSet<NSString *> *requiredKeySet = [NSSet setWithArray:keys];
-    NSSet<NSString *> *actualKeySet = [NSSet setWithArray:dictionary.allKeys];
-    return [actualKeySet isEqualToSet:requiredKeySet];
-}
+#import "SCIXMLUtils.h"
 
 
 @implementation NSObject (SCIXMLSerialization)

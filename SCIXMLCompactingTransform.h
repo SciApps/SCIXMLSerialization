@@ -196,10 +196,10 @@ NS_ASSUME_NONNULL_BEGIN
 //   ObjCBool:    "YES" is parsed as @(YES), "NO" is parsed as @(NO), otherwise return an error
 //   CXXBool:     "true" is parsed as @(true), "false" is parsed as @(false), otherwise return an error
 //   Bool:        ObjCBool or CXXBool, whichever works
-//   Decimal:     base-10 signed or unsigned integer, as parsed by strto[u]l(); error if unparseable
-//   Binary:      base-2 unsigned integer as parsed by strtoul(); may have 0b prefix; error if unparseable
-//   Octal:       base-8 unsigned integer as parsed by strtoul(); may have 0o prefix; error if unparseable
-//   Hex:         base-16 unsigned integer as parsed by strtoul(); may have 0x prefix; error if unparseable
+//   Decimal:     base-10 signed or unsigned integer, as parsed by strto[u]ll(); error if unparseable
+//   Binary:      base-2 unsigned integer as parsed by strtoull(); may have 0b prefix; error if unparseable
+//   Octal:       base-8 unsigned integer as parsed by strtoull(); may have 0o prefix; error if unparseable
+//   Hex:         base-16 unsigned integer as parsed by strtoull(); may have 0x prefix; error if unparseable
 //   Integer:     any of Decimal, Binary, Octal, Hex, as specified by its prefix (0b, 0o, 0x or none)
 //   Floating:    base-10 floating-point number, as parsed by strtod(); error if unparseable
 //   Number:      Integer or Floating

@@ -13,6 +13,7 @@
 
 #import "SCIXMLCompactingTransform.h"
 #import "SCIXMLSerialization.h"
+#import "SCIXMLUtils.h"
 #import "NSObject+SCIXMLSerialization.h"
 
 
@@ -377,6 +378,27 @@ NS_ASSUME_NONNULL_END
 
             return map[input] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
                                                        format:@"not a boolean string: %@", input];
+        },
+        SCIXMLParserTypeDecimal: ^id _Nullable (id input) {
+            return SCIStringToDecimal(input);
+        },
+        SCIXMLParserTypeBinary: ^id _Nullable (id input) {
+            return SCIStringToUnsigned(input, 2);
+        },
+        SCIXMLParserTypeOctal: ^id _Nullable (id input) {
+            return SCIStringToUnsigned(input, 8);
+        },
+        SCIXMLParserTypeHex: ^id _Nullable (id input) {
+            return SCIStringToUnsigned(input, 16);
+        },
+        SCIXMLParserTypeInteger: ^id _Nullable (id input) {
+            return SCIStringToInteger(input);
+        },
+        SCIXMLParserTypeFloating: ^id _Nullable (id input) {
+            return SCIStringToFloating(input);
+        },
+        SCIXMLParserTypeNumber: ^id _Nullable (id input) {
+            return SCIStringToNumber(input);
         },
         // TODO(H2CO3): implement all parser transforms
     };
