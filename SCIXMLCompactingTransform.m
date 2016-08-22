@@ -326,12 +326,39 @@ NS_ASSUME_NONNULL_END
 + (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
                         unspecifiedTransformType:(NSString *)unspecifiedTransformType {
 
-    // TODO(H2CO3): implement
     NSParameterAssert(typeMap);
     NSParameterAssert(unspecifiedTransformType);
 
-    NSAssert(NO, @"Unimplemented");
-    return nil;
+    SCIXMLCompactingTransform *transform = [self new];
+
+    transform.nodeTransform = ^id (NSDictionary *immutableNode) {
+        // if the node is not a dictionary, don't try to second guess the user
+        if (immutableNode.sci_isDictionary == NO) {
+            return immutableNode;
+        }
+
+        NSArray<NSString *> *memberNames = immutableNode.allKeys;
+        NSMutableDictionary *node = [immutableNode sci_mutableCopyOrSelf];
+
+        for (NSString *name in memberNames) {
+            NSString *transformName = typeMap[name] ?: unspecifiedTransformType;
+            id _Nullable (^subtransform)(id) = self.parserSubtransforms[transformName];
+
+            // TODO(H2CO3): check that subtransform is not nil
+            id result = subtransform(node[name]);
+
+            // If transforming any of the members fails, return the resulting error
+            if ([result sci_isError]) {
+                return result;
+            }
+
+            node[name] = result;
+        }
+
+        return node;
+    };
+
+    return transform;
 }
 
 + (NSDictionary<NSString *, id _Nullable (^)(id)> *)parserSubtransforms {

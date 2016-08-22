@@ -10,62 +10,200 @@
 
 #import "SCIXMLUtils.h"
 #import "NSError+SCIXMLSerialization.h"
+#import "NSObject+SCIXMLSerialization.h"
 
 
-// TODO(H2CO3): implement the functions below using something like this:
-//
-// if (str.sci_isString == NO) {
-//     return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-//                                  format:@"cannot parse non-string value of type %@ as a number",
-//                     NSStringFromClass(str.class)];
-// }
-//
-// NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
-// const char *cstr = [str stringByTrimmingCharactersInSet:wsCharset].UTF8String;
-// const char *endExpected = cstr + strlen(cstr);
-// char *endActual = NULL;
-//
-// errno = 0;
-//
-// // First, try parsing input as signed
-// long long sResult = strtoll(cstr, &endActual, 10);
-//
-// // if it failed because the number is too big (positive), then try parsing it as unsigned
-// if (errno == ERANGE && sResult == LLONG_MAX) {
-//     unsigned long long uResult = strtoull(cstr, &endActual, 10);
-//     if (errno == ERANGE) {
-//         // unsigned conversion overflowed as well; all hope is lost
-//         // TODO(H2CO3): handle error
-//     }
-// }
+typedef NS_ENUM(NSUInteger, SCINumberParsingResult) {
+    SCINumberParsingResultSuccess,
+    SCINumberParsingResultNoConversion,
+    SCINumberParsingResultOverflow,
+};
 
 
-id SCIStringToSigned(NSString *str) {
+NS_ASSUME_NONNULL_BEGIN
+
+static long long SCIStringToLongLong(NSString *str, SCINumberParsingResult *result) {
     NSCParameterAssert(str);
-    NSCAssert(NO, @"Unimplemented!");
-    return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                 format:@"unimplemented function: %s", __PRETTY_FUNCTION__];
+    NSCParameterAssert(result);
+
+    if (str.sci_isString == NO) {
+        *result = SCINumberParsingResultNoConversion;
+        return 0;
+    }
+
+    NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
+    NSString *trimmed = [str stringByTrimmingCharactersInSet:wsCharset];
+    const char *cstr = trimmed.UTF8String;
+    const char *endExpected = cstr + strlen(cstr);
+    char *endActual = NULL;
+    errno = 0;
+
+    long long num = strtoll(cstr, &endActual, 10);
+
+    if (errno == ERANGE) {
+        // Over- or underflow
+        *result = SCINumberParsingResultOverflow;
+    } else if (num == 0 && (endActual != endExpected || cstr == endExpected)) {
+        // No conversion could be performed.
+        // (we test for an empty string using "cstr == endExpected" because for an
+        // empty string, strtoll sets endActual to cstr, so endActual == endExpected,
+        // therefore an empty string would go undetected without this additional check.)
+        *result = SCINumberParsingResultNoConversion;
+    } else {
+        // Conversion succeeded
+        *result = SCINumberParsingResultSuccess;
+    }
+
+    return num;
+}
+
+static const char *SCISkipBasePrefix(const char *str, unsigned base) {
+    // if the string is not at least 2 characters long, it can't have a base prefix
+    if (strlen(str) < 2) {
+        return str;
+    }
+
+    NSDictionary<NSNumber *, NSString *> *prefixes = @{
+        @2:  @"b",
+        @8:  @"o",
+        @16: @"x",
+    };
+
+    const char *prefix = prefixes[@(base)].UTF8String;
+
+    if (prefix && str[0] == '0' && tolower(str[1]) == *prefix) {
+        return str + 2;
+    }
+
+    return str;
+}
+
+static unsigned long long SCIStringToUnsignedLongLong(
+    NSString *str,
+    unsigned base,
+    SCINumberParsingResult *result
+) {
+    NSCParameterAssert(str);
+    NSCParameterAssert(result);
+
+    if (str.sci_isString == NO) {
+        *result = SCINumberParsingResultNoConversion;
+        return 0;
+    }
+
+    NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
+    NSString *trimmed = [str stringByTrimmingCharactersInSet:wsCharset];
+    const char *cstr_prefixed = trimmed.UTF8String;
+    const char *cstr = SCISkipBasePrefix(cstr_prefixed, base);
+    const char *endExpected = cstr + strlen(cstr);
+    char *endActual = NULL;
+    errno = 0;
+
+    unsigned long long num = strtoull(cstr, &endActual, base);
+
+    if (errno == ERANGE) {
+        // Overflow
+        *result = SCINumberParsingResultOverflow;
+    } else if (num == 0 && (endActual != endExpected || cstr == endExpected)) {
+        // No conversion could be performed.
+        // (we test for an empty string using "cstr == endExpected" because for an
+        // empty string, strtoull sets endActual to cstr, so endActual == endExpected,
+        // therefore an empty string would go undetected without this additional check.)
+        *result = SCINumberParsingResultNoConversion;
+    } else {
+        // Conversion succeeded
+        *result = SCINumberParsingResultSuccess;
+    }
+
+    return num;
+}
+
+static NSError *SCIErrorFromNumberParsingResult(SCINumberParsingResult result, NSString *str) {
+    switch (result) {
+    case SCINumberParsingResultSuccess:
+        NSCAssert(NO, @"must not return an error from SCINumberParsingResultSuccess");
+        return nil;
+
+    case SCINumberParsingResultNoConversion:
+        return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                     format:@"numeric string '%@' is invalid for the specified base", str];
+
+    case SCINumberParsingResultOverflow:
+        return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                     format:@"can't parse '%@' as a number because it overflows", str];
+
+    default:
+        NSCAssert(NO, @"unreachable (invalid SCINumberParsingResult: %lu)", (unsigned long)result);
+        return nil;
+    }
+}
+
+NS_ASSUME_NONNULL_END
+
+id SCIStringToDecimal(NSString *str) {
+    SCINumberParsingResult result = SCINumberParsingResultSuccess;
+
+    // First, try parsing a signed number (in order to allow negatives)
+    long long signedNum = SCIStringToLongLong(str, &result);
+
+    switch (result) {
+    case SCINumberParsingResultSuccess:
+        return @(signedNum);
+
+    case SCINumberParsingResultOverflow: {
+        // if the result overflows as a signed number, try parsing it as unsigned
+        unsigned long long unsignedNum = SCIStringToUnsignedLongLong(str, 10, &result);
+
+        if (result == SCINumberParsingResultSuccess) {
+            return @(unsignedNum);
+        } else {
+            return SCIErrorFromNumberParsingResult(result, str);
+        }
+    }
+
+    default:
+        return SCIErrorFromNumberParsingResult(result, str);
+    }
 }
 
 id SCIStringToUnsigned(NSString *str, unsigned base) {
     NSCParameterAssert(str);
-    NSCAssert(NO, @"Unimplemented!");
-    return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                 format:@"unimplemented function: %s", __PRETTY_FUNCTION__];
-}
 
-id SCIStringToDecimal(NSString *str) {
-    NSCParameterAssert(str);
-    NSCAssert(NO, @"Unimplemented!");
-    return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                 format:@"unimplemented function: %s", __PRETTY_FUNCTION__];
+    SCINumberParsingResult result = SCINumberParsingResultSuccess;
+    unsigned long long num = SCIStringToUnsignedLongLong(str, base, &result);
+
+    if (result == SCINumberParsingResultSuccess) {
+        return @(num);
+    } else {
+        return SCIErrorFromNumberParsingResult(result, str);
+    }
 }
 
 id SCIStringToInteger(NSString *str) {
     NSCParameterAssert(str);
-    NSCAssert(NO, @"Unimplemented!");
-    return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                 format:@"unimplemented function: %s", __PRETTY_FUNCTION__];
+
+    // First, try parsing it as a binary, octal or hexadecimal
+    // unsigned integer, deducing the base from its prefix
+    if (str.sci_isString == NO) {
+        return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                     format:@"'%@' isn't a string representation of an integer", str];
+    }
+
+    NSDictionary<NSString *, NSNumber *> *prefixes = @{
+        @"0b": @2,
+        @"0o": @8,
+        @"0x": @16,
+    };
+
+    for (NSString *prefix in prefixes) {
+        if ([str.lowercaseString hasPrefix:prefix]) {
+            unsigned base = prefixes[prefix].unsignedIntValue;
+            return SCIStringToUnsigned(str, base);
+        }
+    }
+
+    // Otherwise, try parsing it as a decimal signed or unsigned integer
+    return SCIStringToDecimal(str);
 }
 
 id SCIStringToFloating(NSString *str) {

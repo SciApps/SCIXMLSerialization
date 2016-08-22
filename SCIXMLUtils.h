@@ -14,9 +14,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-id SCIStringToSigned(NSString *str);
-id SCIStringToUnsigned(NSString *str, unsigned base);
 id SCIStringToDecimal(NSString *str);
+id SCIStringToUnsigned(NSString *str, unsigned base);
 id SCIStringToInteger(NSString *str);
 id SCIStringToFloating(NSString *str);
 id SCIStringToNumber(NSString *str);

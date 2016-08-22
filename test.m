@@ -10,16 +10,20 @@ int main(int argc, char *argv[])
                                                      error:NULL];
 
         NSDictionary<NSString *, NSString *> *typeMap = @{
-            @"bar": SCIXMLParserTypeObjCBool,
-            @"baz": SCIXMLParserTypeCXXBool,
+            @"StatusCode":                 SCIXMLParserTypeInteger,
+            @"StatusDate":                 SCIXMLParserTypeBinary,
+            @"TemplateExpirationDate":     SCIXMLParserTypeHex,
+            @"TemplateAllowed":            SCIXMLParserTypeCXXBool,
+            @"FixedValue":                 SCIXMLParserTypeCXXBool,
+            @"CouponEnabled":              SCIXMLParserTypeCXXBool,
         };
         NSArray<id<SCIXMLCompactingTransform>> *transforms = @[
-            [SCIXMLCompactingTransform attributeParserTransformWithTypeMap:typeMap
-                                                  unspecifiedTransformType:SCIXMLParserTypeIdentity],
             SCIXMLCompactingTransform.attributeFlatteningTransform,
             SCIXMLCompactingTransform.elementTypeFilterTransform,
             SCIXMLCompactingTransform.textNodeFlatteningTransform,
             SCIXMLCompactingTransform.childFlatteningTransform,
+            [SCIXMLCompactingTransform memberParserTransformWithTypeMap:typeMap
+                                               unspecifiedTransformType:SCIXMLParserTypeIdentity],
         ];
 
         id <SCIXMLCompactingTransform> transform;
