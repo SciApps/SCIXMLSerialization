@@ -21,10 +21,18 @@ typedef NS_ENUM(NSUInteger, SCINumberParsingResult) {
     SCINumberParsingResultOverflow,
 };
 
+typedef NS_ENUM(NSUInteger, SCINumberParsingType) {
+    SCINumberParsingTypeSignedLongLong,
+    SCINumberParsingTypeUnsignedLongLong,
+    SCINumberParsingTypeDouble,
+};
+
 
 NS_ASSUME_NONNULL_BEGIN
 
 static const char *SCISkipBasePrefix(const char *str, unsigned base) {
+    NSCParameterAssert(str);
+
     // if the string is not at least 2 characters long, it can't have a base prefix
     if (strlen(str) < 2) {
         return str;
@@ -46,6 +54,8 @@ static const char *SCISkipBasePrefix(const char *str, unsigned base) {
 }
 
 static NSError *SCIErrorFromNumberParsingResult(SCINumberParsingResult result, NSString *str) {
+    NSCParameterAssert(str);
+
     switch (result) {
     case SCINumberParsingResultSuccess:
         NSCAssert(NO, @"must not return an error from SCINumberParsingResultSuccess");
@@ -53,7 +63,8 @@ static NSError *SCIErrorFromNumberParsingResult(SCINumberParsingResult result, N
 
     case SCINumberParsingResultNoConversion:
         return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                     format:@"numeric string '%@' is invalid for the specified base", str];
+                                     format:@"numeric string '%@' is invalid for the specified base or format",
+                                            str];
 
     case SCINumberParsingResultOverflow:
         return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
@@ -65,39 +76,78 @@ static NSError *SCIErrorFromNumberParsingResult(SCINumberParsingResult result, N
     }
 }
 
-static long long SCIStringToLongLong(NSString *str, SCINumberParsingResult *result) {
+
+
+static SCINumberParsingResult SCIStringToArithmetic(
+    NSString *str,
+    unsigned base,
+    SCINumberParsingType type,
+    void *outNumber
+) {
     NSCParameterAssert(str);
-    NSCParameterAssert(result);
+    NSCParameterAssert(outNumber);
 
     if (str.sci_isString == NO) {
-        *result = SCINumberParsingResultNoConversion;
-        return 0;
+        return SCINumberParsingResultNoConversion;
     }
 
+    // Trim whitespace from both ends of the string
     NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
     NSString *trimmed = [str stringByTrimmingCharactersInSet:wsCharset];
     const char *cstr = trimmed.UTF8String;
+
+    // If the number is expected to be parsed as an unsigned, then skip its potential base prefix
+    if (type == SCINumberParsingTypeUnsignedLongLong) {
+        // need a temporary object to avoid UB because assignment is unsequenced
+        const char *cstr_noprefix = SCISkipBasePrefix(cstr, base);
+        cstr = cstr_noprefix;
+    }
+
+    // Prepare the ground for the conversion functions
     const char *endExpected = cstr + strlen(cstr);
     char *endActual = NULL;
     errno = 0;
 
-    long long num = strtoll(cstr, &endActual, 10);
-
-    if (errno == ERANGE) {
-        // Over- or underflow
-        *result = SCINumberParsingResultOverflow;
-    } else if (num == 0 && (endActual != endExpected || cstr == endExpected)) {
-        // No conversion could be performed.
-        // (we test for an empty string using "cstr == endExpected" because for an
-        // empty string, strtoll sets endActual to cstr, so endActual == endExpected,
-        // therefore an empty string would go undetected without this additional check.)
-        *result = SCINumberParsingResultNoConversion;
-    } else {
-        // Conversion succeeded
-        *result = SCINumberParsingResultSuccess;
+    // Perform the conversion
+    switch (type) {
+    case SCINumberParsingTypeSignedLongLong:
+        *(long long *)outNumber = strtoll(cstr, &endActual, base);
+        break;
+    case SCINumberParsingTypeUnsignedLongLong:
+        *(unsigned long long *)outNumber = strtoull(cstr, &endActual, base);
+        break;
+    case SCINumberParsingTypeDouble:
+        *(double *)outNumber = strtod(cstr, &endActual);
+        break;
+    default:
+        NSCAssert(NO, @"invalid SCINumberParsingType: %lu", (unsigned long)type);
+        break;
     }
 
-    return num;
+    // Check if it succeeded
+    if (errno == ERANGE) {
+        // Over- or underflow
+        return SCINumberParsingResultOverflow;
+    } else if (endActual != endExpected || cstr == endExpected) {
+        // No conversion could be performed.
+        // (we test for an empty string using "cstr == endExpected" because for an
+        // empty string, conversion functions set endActual to cstr, so endActual == endExpected,
+        // therefore an empty string would go undetected without this additional check.)
+        return SCINumberParsingResultNoConversion;
+    } else {
+        // Conversion succeeded
+        return SCINumberParsingResultSuccess;
+    }
+}
+
+static long long SCIStringToLongLong(NSString *str, SCINumberParsingResult *result) {
+    NSCParameterAssert(str);
+    NSCParameterAssert(result);
+
+    long long number = 0;
+    *result = SCIStringToArithmetic(str, 10, SCINumberParsingTypeSignedLongLong, &number);
+
+    return number;
 }
 
 static unsigned long long SCIStringToUnsignedLongLong(
@@ -108,66 +158,20 @@ static unsigned long long SCIStringToUnsignedLongLong(
     NSCParameterAssert(str);
     NSCParameterAssert(result);
 
-    if (str.sci_isString == NO) {
-        *result = SCINumberParsingResultNoConversion;
-        return 0;
-    }
+    unsigned long long number = 0;
+    *result = SCIStringToArithmetic(str, base, SCINumberParsingTypeUnsignedLongLong, &number);
 
-    NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
-    NSString *trimmed = [str stringByTrimmingCharactersInSet:wsCharset];
-    const char *cstr_prefixed = trimmed.UTF8String;
-    const char *cstr = SCISkipBasePrefix(cstr_prefixed, base);
-    const char *endExpected = cstr + strlen(cstr);
-    char *endActual = NULL;
-    errno = 0;
-
-    unsigned long long num = strtoull(cstr, &endActual, base);
-
-    if (errno == ERANGE) {
-        // Overflow
-        *result = SCINumberParsingResultOverflow;
-    } else if (num == 0 && (endActual != endExpected || cstr == endExpected)) {
-        // No conversion could be performed.
-        // (we test for an empty string using "cstr == endExpected" because for an
-        // empty string, strtoull sets endActual to cstr, so endActual == endExpected,
-        // therefore an empty string would go undetected without this additional check.)
-        *result = SCINumberParsingResultNoConversion;
-    } else {
-        // Conversion succeeded
-        *result = SCINumberParsingResultSuccess;
-    }
-
-    return num;
+    return number;
 }
 
-// I wish C had generics
 static double SCIStringToDouble(NSString *str, SCINumberParsingResult *result) {
     NSCParameterAssert(str);
     NSCParameterAssert(result);
 
-    if (str.sci_isString == NO) {
-        *result = SCINumberParsingResultNoConversion;
-        return NAN;
-    }
+    double number = NAN;
+    *result = SCIStringToArithmetic(str, 0 /* ignored */, SCINumberParsingTypeDouble, &number);
 
-    NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
-    NSString *trimmed = [str stringByTrimmingCharactersInSet:wsCharset];
-    const char *cstr = trimmed.UTF8String;
-    const char *endExpected = cstr + strlen(cstr);
-    char *endActual = NULL;
-    errno = 0;
-
-    double num = strtod(cstr, &endActual);
-
-    if (errno == ERANGE) {
-        *result = SCINumberParsingResultOverflow;
-    } else if (num == 0.0 && (endActual != endExpected || cstr == endExpected)) {
-        *result = SCINumberParsingResultNoConversion;
-    } else {
-        *result = SCINumberParsingResultSuccess;
-    }
-
-    return num;
+    return number;
 }
 
 NS_ASSUME_NONNULL_END
@@ -221,6 +225,9 @@ id SCIStringToInteger(NSString *str) {
                                      format:@"'%@' isn't parseable as an integer", str];
     }
 
+    NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
+    NSString *trimmedLowercase = [str stringByTrimmingCharactersInSet:wsCharset].lowercaseString;
+
     NSDictionary<NSString *, NSNumber *> *prefixes = @{
         @"0b": @2,
         @"0o": @8,
@@ -228,7 +235,7 @@ id SCIStringToInteger(NSString *str) {
     };
 
     for (NSString *prefix in prefixes) {
-        if ([str.lowercaseString hasPrefix:prefix]) {
+        if ([trimmedLowercase hasPrefix:prefix]) {
             unsigned base = prefixes[prefix].unsignedIntValue;
             return SCIStringToUnsigned(str, base);
         }
