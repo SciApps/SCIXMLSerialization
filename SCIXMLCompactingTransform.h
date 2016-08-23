@@ -208,10 +208,12 @@ NS_ASSUME_NONNULL_BEGIN
 //   EscapeXML:   escape the string as if it were to be placed inside an XML text element
 //   UnescapeXML: inverse of EscapeXML
 //   Timestamp:   Time stamp since midnight 01/01/1970 UTC, as integer or double,
-//                with or without fractional seconds, with or without a time zone,
-//                converted to an instance of NSDate; missing timezone is assumed to be UTC;
+//                converted to an instance of NSDate;
 //                an error is returned if the string is unparseable
-//   Date:        ISO-8601 formatted date, converted to NSDate; error if unparseable
+//   Date:        ISO-8601 formatted date, converted to an instance of NSDate;
+//                with or without fractional seconds, with or without a time zone
+//                (missing timezone is assumed to be UTC);
+//                an error is returned if the string is unparseable or if the date is invalid
 //   Base64:      Base-64 encoded string, converted to NSData; return error if encoding is invalid
 + (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
                            unspecifiedTransformType:(NSString *)unspecifiedTransformType;
