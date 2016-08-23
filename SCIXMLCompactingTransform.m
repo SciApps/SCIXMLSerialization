@@ -458,8 +458,8 @@ NS_ASSUME_NONNULL_END
             // Common date formats resembling ISO-8601 full date and time
             NSArray<NSString *> *dateFormats = @[
                 @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.SZ",
-                @"yyyy'-'MM'-'dd'T'HH':'mm':'ssZ",
                 @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.S",
+                @"yyyy'-'MM'-'dd'T'HH':'mm':'ssZ",
                 @"yyyy'-'MM'-'dd'T'HH':'mm':'ss",
             ];
 

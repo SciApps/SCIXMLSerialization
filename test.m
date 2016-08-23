@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 
         NSDictionary<NSString *, NSString *> *typeMap = @{
             @"StatusCode":                 SCIXMLParserTypeInteger,
-            @"StatusDate":                 SCIXMLParserTypeTimestamp,
+            @"StatusDate":                 SCIXMLParserTypeDate,
             @"TemplateExpirationDate":     SCIXMLParserTypeHex,
             @"ValueMax":                   SCIXMLParserTypeNumber,
             @"Osszeg":                     SCIXMLParserTypeFloating,
