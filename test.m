@@ -11,10 +11,12 @@ int main(int argc, char *argv[])
 
         NSDictionary<NSString *, NSString *> *typeMap = @{
             @"StatusCode":                 SCIXMLParserTypeInteger,
-            @"StatusDate":                 SCIXMLParserTypeBinary,
+            @"StatusDate":                 SCIXMLParserTypeFloating,
             @"TemplateExpirationDate":     SCIXMLParserTypeHex,
+            @"ValueMax":                   SCIXMLParserTypeNumber,
+            @"Osszeg":                     SCIXMLParserTypeFloating,
             @"TemplateAllowed":            SCIXMLParserTypeCXXBool,
-            @"FixedValue":                 SCIXMLParserTypeCXXBool,
+            @"FixedValue":                 SCIXMLParserTypeBool,
             @"CouponEnabled":              SCIXMLParserTypeCXXBool,
         };
         NSArray<id<SCIXMLCompactingTransform>> *transforms = @[

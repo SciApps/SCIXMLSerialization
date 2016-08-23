@@ -8,6 +8,8 @@
 // Copyright (C) SciApps.io, 2016.
 //
 
+#import <math.h>
+
 #import "SCIXMLUtils.h"
 #import "NSError+SCIXMLSerialization.h"
 #import "NSObject+SCIXMLSerialization.h"
@@ -21,6 +23,47 @@ typedef NS_ENUM(NSUInteger, SCINumberParsingResult) {
 
 
 NS_ASSUME_NONNULL_BEGIN
+
+static const char *SCISkipBasePrefix(const char *str, unsigned base) {
+    // if the string is not at least 2 characters long, it can't have a base prefix
+    if (strlen(str) < 2) {
+        return str;
+    }
+
+    NSDictionary<NSNumber *, NSString *> *prefixes = @{
+        @2:  @"b",
+        @8:  @"o",
+        @16: @"x",
+    };
+
+    const char *prefix = prefixes[@(base)].UTF8String;
+
+    if (prefix && str[0] == '0' && tolower(str[1]) == *prefix) {
+        return str + 2;
+    }
+
+    return str;
+}
+
+static NSError *SCIErrorFromNumberParsingResult(SCINumberParsingResult result, NSString *str) {
+    switch (result) {
+    case SCINumberParsingResultSuccess:
+        NSCAssert(NO, @"must not return an error from SCINumberParsingResultSuccess");
+        return nil;
+
+    case SCINumberParsingResultNoConversion:
+        return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                     format:@"numeric string '%@' is invalid for the specified base", str];
+
+    case SCINumberParsingResultOverflow:
+        return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                     format:@"can't parse '%@' as a number because it overflows", str];
+
+    default:
+        NSCAssert(NO, @"unreachable (invalid SCINumberParsingResult: %lu)", (unsigned long)result);
+        return nil;
+    }
+}
 
 static long long SCIStringToLongLong(NSString *str, SCINumberParsingResult *result) {
     NSCParameterAssert(str);
@@ -55,27 +98,6 @@ static long long SCIStringToLongLong(NSString *str, SCINumberParsingResult *resu
     }
 
     return num;
-}
-
-static const char *SCISkipBasePrefix(const char *str, unsigned base) {
-    // if the string is not at least 2 characters long, it can't have a base prefix
-    if (strlen(str) < 2) {
-        return str;
-    }
-
-    NSDictionary<NSNumber *, NSString *> *prefixes = @{
-        @2:  @"b",
-        @8:  @"o",
-        @16: @"x",
-    };
-
-    const char *prefix = prefixes[@(base)].UTF8String;
-
-    if (prefix && str[0] == '0' && tolower(str[1]) == *prefix) {
-        return str + 2;
-    }
-
-    return str;
 }
 
 static unsigned long long SCIStringToUnsignedLongLong(
@@ -118,24 +140,34 @@ static unsigned long long SCIStringToUnsignedLongLong(
     return num;
 }
 
-static NSError *SCIErrorFromNumberParsingResult(SCINumberParsingResult result, NSString *str) {
-    switch (result) {
-    case SCINumberParsingResultSuccess:
-        NSCAssert(NO, @"must not return an error from SCINumberParsingResultSuccess");
-        return nil;
+// I wish C had generics
+static double SCIStringToDouble(NSString *str, SCINumberParsingResult *result) {
+    NSCParameterAssert(str);
+    NSCParameterAssert(result);
 
-    case SCINumberParsingResultNoConversion:
-        return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                     format:@"numeric string '%@' is invalid for the specified base", str];
-
-    case SCINumberParsingResultOverflow:
-        return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                     format:@"can't parse '%@' as a number because it overflows", str];
-
-    default:
-        NSCAssert(NO, @"unreachable (invalid SCINumberParsingResult: %lu)", (unsigned long)result);
-        return nil;
+    if (str.sci_isString == NO) {
+        *result = SCINumberParsingResultNoConversion;
+        return NAN;
     }
+
+    NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
+    NSString *trimmed = [str stringByTrimmingCharactersInSet:wsCharset];
+    const char *cstr = trimmed.UTF8String;
+    const char *endExpected = cstr + strlen(cstr);
+    char *endActual = NULL;
+    errno = 0;
+
+    double num = strtod(cstr, &endActual);
+
+    if (errno == ERANGE) {
+        *result = SCINumberParsingResultOverflow;
+    } else if (num == 0.0 && (endActual != endExpected || cstr == endExpected)) {
+        *result = SCINumberParsingResultNoConversion;
+    } else {
+        *result = SCINumberParsingResultSuccess;
+    }
+
+    return num;
 }
 
 NS_ASSUME_NONNULL_END
@@ -186,7 +218,7 @@ id SCIStringToInteger(NSString *str) {
     // unsigned integer, deducing the base from its prefix
     if (str.sci_isString == NO) {
         return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                     format:@"'%@' isn't a string representation of an integer", str];
+                                     format:@"'%@' isn't parseable as an integer", str];
     }
 
     NSDictionary<NSString *, NSNumber *> *prefixes = @{
@@ -208,16 +240,30 @@ id SCIStringToInteger(NSString *str) {
 
 id SCIStringToFloating(NSString *str) {
     NSCParameterAssert(str);
-    NSCAssert(NO, @"Unimplemented!");
-    return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                 format:@"unimplemented function: %s", __PRETTY_FUNCTION__];
+
+    SCINumberParsingResult result = SCINumberParsingResultSuccess;
+    double num = SCIStringToDouble(str, &result);
+
+    if (result == SCINumberParsingResultSuccess) {
+        return @(num);
+    } else {
+        return SCIErrorFromNumberParsingResult(result, str);
+    }
 }
 
 id SCIStringToNumber(NSString *str) {
     NSCParameterAssert(str);
-    NSCAssert(NO, @"Unimplemented!");
-    return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                 format:@"unimplemented function: %s", __PRETTY_FUNCTION__];
+
+    // First, try parsing the string as an integer
+    id numOrError = SCIStringToInteger(str);
+
+    // return it if the conversion succeeded
+    if ([numOrError isKindOfClass:NSNumber.class]) {
+        return numOrError;
+    }
+
+    // If it failed, however, try again assuming floating-point
+    return SCIStringToFloating(str);
 }
 
 BOOL SCIDictionaryHasExactKeys(
