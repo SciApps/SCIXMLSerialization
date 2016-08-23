@@ -39,6 +39,10 @@
     return [self isKindOfClass:NSMutableDictionary.class];
 }
 
+- (BOOL)sci_isNumber {
+    return [self isKindOfClass:NSNumber.class];
+}
+
 - (BOOL)sci_isError {
     return [self isKindOfClass:NSError.class];
 }

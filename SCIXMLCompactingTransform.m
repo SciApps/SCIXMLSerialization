@@ -427,6 +427,54 @@ NS_ASSUME_NONNULL_END
         SCIXMLParserTypeNumber: ^id _Nullable (id input) {
             return SCIStringToNumber(input);
         },
+        SCIXMLParserTypeTimestamp: ^id _Nullable (id input) {
+            id numOrError = SCIStringToNumber(input);
+
+            if ([numOrError sci_isNumber]) {
+                NSNumber *num = numOrError;
+                return [NSDate dateWithTimeIntervalSince1970:num.doubleValue];
+            } else {
+                // otherwise, it's an error - couldn't parse numeric string
+                return numOrError;
+            }
+        },
+        SCIXMLParserTypeDate: ^id _Nullable (NSString *input) {
+            if (input.sci_isString == NO) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"expected an NSString, got %@",
+                                                    NSStringFromClass(input.class)];
+            }
+
+            // Creating a date formatter is expensive - formatters should be re-used
+            static NSDateFormatter *dateFormatter = nil;
+            static dispatch_once_t token;
+
+            dispatch_once(&token, ^{
+                dateFormatter = [NSDateFormatter new];
+                dateFormatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+                dateFormatter.timeZone = [NSTimeZone timeZoneWithName:@"UTC"];
+            });
+
+            // Common date formats resembling ISO-8601 full date and time
+            NSArray<NSString *> *dateFormats = @[
+                @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.SZ",
+                @"yyyy'-'MM'-'dd'T'HH':'mm':'ssZ",
+                @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.S",
+                @"yyyy'-'MM'-'dd'T'HH':'mm':'ss",
+            ];
+
+            for (NSString *format in dateFormats) {
+                dateFormatter.dateFormat = format;
+                NSDate *date = [dateFormatter dateFromString:input];
+
+                if (date) {
+                    return date;
+                }
+            }
+
+            return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                         format:@"'%@' isn't a valid ISO-8601 string", input];
+        },
         // TODO(H2CO3): implement all parser transforms
     };
 };

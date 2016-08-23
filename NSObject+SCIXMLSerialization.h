@@ -20,6 +20,7 @@
 @property (nonatomic, readonly) BOOL sci_isMutableArray;
 @property (nonatomic, readonly) BOOL sci_isDictionary;
 @property (nonatomic, readonly) BOOL sci_isMutableDictionary;
+@property (nonatomic, readonly) BOOL sci_isNumber;
 @property (nonatomic, readonly) BOOL sci_isError;
 
 @property (nonatomic, readonly) BOOL sci_isTextOrCDATANode;

@@ -258,7 +258,7 @@ id SCIStringToNumber(NSString *str) {
     id numOrError = SCIStringToInteger(str);
 
     // return it if the conversion succeeded
-    if ([numOrError isKindOfClass:NSNumber.class]) {
+    if ([numOrError sci_isNumber]) {
         return numOrError;
     }
 
