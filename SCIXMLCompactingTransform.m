@@ -48,8 +48,8 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)attributeFilterTransformWithNameList:(NSArray<NSString *> *)nameList
                           invertContainmentCondition:(BOOL)invert;
 
-+ (NSDictionary<NSString *, id _Nullable (^)(id)> *)parserSubtransforms;
-+ (NSDictionary<NSString *, id _Nullable (^)(id)> *)unsafeLoadParserSubtransforms;
++ (NSDictionary<NSString *, id _Nullable (^)(NSString *, id)> *)parserSubtransforms;
++ (NSDictionary<NSString *, id _Nullable (^)(NSString *, id)> *)unsafeLoadParserSubtransforms;
 
 @end
 NS_ASSUME_NONNULL_END
@@ -314,10 +314,10 @@ NS_ASSUME_NONNULL_END
         id value       = nameValuePair[SCIXMLAttributeTransformKeyValue];
 
         NSString *transformName = typeMap[name] ?: unspecifiedTransformType;
-        id _Nullable (^subtransform)(id) = self.parserSubtransforms[transformName];
+        id _Nullable (^subtransform)(NSString *, id) = self.parserSubtransforms[transformName];
 
         // TODO(H2CO3): check that subtransform is not nil
-        return subtransform(value);
+        return subtransform(name, value);
     };
 
     return transform;
@@ -342,10 +342,10 @@ NS_ASSUME_NONNULL_END
 
         for (NSString *name in memberNames) {
             NSString *transformName = typeMap[name] ?: unspecifiedTransformType;
-            id _Nullable (^subtransform)(id) = self.parserSubtransforms[transformName];
+            id _Nullable (^subtransform)(NSString *, id) = self.parserSubtransforms[transformName];
 
             // TODO(H2CO3): check that subtransform is not nil
-            id result = subtransform(node[name]);
+            id result = subtransform(name, node[name]);
 
             // If transforming any of the members fails, return the resulting error
             if ([result sci_isError]) {
@@ -361,8 +361,8 @@ NS_ASSUME_NONNULL_END
     return transform;
 }
 
-+ (NSDictionary<NSString *, id _Nullable (^)(id)> *)parserSubtransforms {
-    static NSDictionary<NSString *, id _Nullable (^)(id)> *subtransforms = nil;
++ (NSDictionary<NSString *, id _Nullable (^)(NSString *, id)> *)parserSubtransforms {
+    static NSDictionary<NSString *, id _Nullable (^)(NSString *, id)> *subtransforms = nil;
     static dispatch_once_t token;
 
     // thread-safely cache attribute and member parser functions
@@ -373,29 +373,39 @@ NS_ASSUME_NONNULL_END
     return subtransforms;
 }
 
-+ (NSDictionary<NSString *, id _Nullable (^)(id)> *)unsafeLoadParserSubtransforms {
++ (NSDictionary<NSString *, id _Nullable (^)(NSString *, id)> *)unsafeLoadParserSubtransforms {
     return @{
-        SCIXMLParserTypeError: ^id _Nullable (id input) {
+        SCIXMLParserTypeError: ^id _Nullable (NSString *name, id value) {
             return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                         format:@"no type specification for attribute or node: %@", input];
+                                         format:@"no type specification for attribute or node '%@'", name];
         },
-        SCIXMLParserTypeNull: ^id _Nullable (id unused) {
+        SCIXMLParserTypeNull: ^id _Nullable (NSString *name, id value) {
             return nil;
         },
-        SCIXMLParserTypeIdentity: ^id _Nullable (id input) {
-            return input;
+        SCIXMLParserTypeIdentity: ^id _Nullable (NSString *name, id value) {
+            return value;
         },
-        SCIXMLParserTypeObjCBool: ^id _Nullable (id input) {
-            NSDictionary<NSString *, NSNumber *> *map = @{ @"YES": @YES, @"NO": @NO };
-            return map[input] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                                       format:@"not an Obj-C BOOL string: %@", input];
+        SCIXMLParserTypeObjCBool: ^id _Nullable (NSString *name, id value) {
+            NSDictionary<NSString *, NSNumber *> *map = @{
+                @"YES": @YES,
+                @"NO":  @NO
+            };
+
+            return map[value] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"'%@': not an Obj-C BOOL string: '%@'",
+                                                              name, value];
         },
-        SCIXMLParserTypeCXXBool: ^id _Nullable (id input) {
-            NSDictionary<NSString *, NSNumber *> *map = @{ @"true": @true, @"false": @false };
-            return map[input] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                                       format:@"not a C++ bool string: %@", input];
+        SCIXMLParserTypeCXXBool: ^id _Nullable (NSString *name, id value) {
+            NSDictionary<NSString *, NSNumber *> *map = @{
+                @"true":  @true,
+                @"false": @false
+            };
+
+            return map[value] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"'%@': not a C++ bool string: '%@'",
+                                                              name, value];
         },
-        SCIXMLParserTypeBool: ^id _Nullable (id input) {
+        SCIXMLParserTypeBool: ^id _Nullable (NSString *name, id value) {
             NSDictionary<NSString *, NSNumber *> *map = @{
                 @"YES":   @YES,
                 @"NO":    @NO,
@@ -403,46 +413,47 @@ NS_ASSUME_NONNULL_END
                 @"false": @false,
             };
 
-            return map[input] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                                       format:@"not a boolean string: %@", input];
+            return map[value] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"'%@': not a boolean string: '%@'",
+                                                              name, value];
         },
-        SCIXMLParserTypeDecimal: ^id _Nullable (id input) {
-            return SCIStringToDecimal(input);
+        SCIXMLParserTypeDecimal: ^id _Nullable (NSString *name, id value) {
+            return SCIStringToDecimal(value);
         },
-        SCIXMLParserTypeBinary: ^id _Nullable (id input) {
-            return SCIStringToUnsigned(input, 2);
+        SCIXMLParserTypeBinary: ^id _Nullable (NSString *name, id value) {
+            return SCIStringToUnsigned(value, 2);
         },
-        SCIXMLParserTypeOctal: ^id _Nullable (id input) {
-            return SCIStringToUnsigned(input, 8);
+        SCIXMLParserTypeOctal: ^id _Nullable (NSString *name, id value) {
+            return SCIStringToUnsigned(value, 8);
         },
-        SCIXMLParserTypeHex: ^id _Nullable (id input) {
-            return SCIStringToUnsigned(input, 16);
+        SCIXMLParserTypeHex: ^id _Nullable (NSString *name, id value) {
+            return SCIStringToUnsigned(value, 16);
         },
-        SCIXMLParserTypeInteger: ^id _Nullable (id input) {
-            return SCIStringToInteger(input);
+        SCIXMLParserTypeInteger: ^id _Nullable (NSString *name, id value) {
+            return SCIStringToInteger(value);
         },
-        SCIXMLParserTypeFloating: ^id _Nullable (id input) {
-            return SCIStringToFloating(input);
+        SCIXMLParserTypeFloating: ^id _Nullable (NSString *name, id value) {
+            return SCIStringToFloating(value);
         },
-        SCIXMLParserTypeNumber: ^id _Nullable (id input) {
-            return SCIStringToNumber(input);
+        SCIXMLParserTypeNumber: ^id _Nullable (NSString *name, id value) {
+            return SCIStringToNumber(value);
         },
-        SCIXMLParserTypeTimestamp: ^id _Nullable (id input) {
-            id numOrError = SCIStringToNumber(input);
+        SCIXMLParserTypeTimestamp: ^id _Nullable (NSString *name, id value) {
+            id numberOrError = SCIStringToNumber(value);
 
-            if ([numOrError sci_isNumber]) {
-                NSNumber *num = numOrError;
-                return [NSDate dateWithTimeIntervalSince1970:num.doubleValue];
+            if ([numberOrError sci_isNumber]) {
+                NSNumber *number = numberOrError;
+                return [NSDate dateWithTimeIntervalSince1970:number.doubleValue];
             } else {
                 // otherwise, it's an error - couldn't parse numeric string
-                return numOrError;
+                return numberOrError;
             }
         },
-        SCIXMLParserTypeDate: ^id _Nullable (NSString *input) {
-            if (input.sci_isString == NO) {
+        SCIXMLParserTypeDate: ^id _Nullable (NSString *name, NSString *value) {
+            if (value.sci_isString == NO) {
                 return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                             format:@"expected an NSString, got %@",
-                                                    NSStringFromClass(input.class)];
+                                             format:@"expected '%@' to have an NSString value; got %@",
+                                                    name, NSStringFromClass(value.class)];
             }
 
             // Creating a date formatter is expensive - formatters should be re-used
@@ -465,7 +476,7 @@ NS_ASSUME_NONNULL_END
 
             for (NSString *format in dateFormats) {
                 dateFormatter.dateFormat = format;
-                NSDate *date = [dateFormatter dateFromString:input];
+                NSDate *date = [dateFormatter dateFromString:value];
 
                 if (date) {
                     return date;
@@ -473,7 +484,13 @@ NS_ASSUME_NONNULL_END
             }
 
             return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
-                                         format:@"'%@' isn't a valid ISO-8601 string", input];
+                                         format:@"value of key '%@' ('%@') isn't a valid ISO-8601 string",
+                                                name, value];
+        },
+        SCIXMLParserTypeBase64: ^id _Nullable (NSString *name, id value) {
+            // TODO(H2CO3): implement
+            NSAssert(NO, @"Unimplemented");
+            return nil;
         },
         // TODO(H2CO3): implement all parser transforms
     };

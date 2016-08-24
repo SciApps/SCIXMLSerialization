@@ -76,8 +76,6 @@ static NSError *SCIErrorFromNumberParsingResult(SCINumberParsingResult result, N
     }
 }
 
-
-
 static SCINumberParsingResult SCIStringToArithmetic(
     NSString *str,
     unsigned base,
