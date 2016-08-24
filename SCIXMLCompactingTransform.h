@@ -193,9 +193,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 // A transform that attempts to parse attribute values as certain types.
 // This is an attribute transform.
-// The type map is a dictionary of attribute names to type specifier strings.
-// For attributes with a name not contained in the type specification dictionary,
-// the transform for the unspecifiedTransformType key will be called.
+// The type map is a dictionary of attribute names to type specifier strings
+// or custom transform blocks.
+//
+// Custom transform blocks must have the signature 'id _Nullable (^)(NSString *name, id value)'.
+// The first parameter of the transform block is the name of the attribute,
+// while its second parameter is the corresponding value. Neither the name or the value
+// will be nil when passed to a transform block. Transform blocks may return a valid object,
+// or nil (for omission of the attribute), or an instance of NSError (to signal an error).
+//
+// For attributes of which the name is not contained in the type specification dictionary, the
+// fallback will be called, appropriately interpreted as a type key or as a block.
+//
 // The following type specifier strings are currently supported:
 //   Error:       should be used for returning an error for unspecified attributes
 //   Null:        removes the key-value pair altogether, can be used for blacklisting filtering too
@@ -222,13 +231,13 @@ NS_ASSUME_NONNULL_BEGIN
 //                (missing timezone is assumed to be UTC);
 //                an error is returned if the string is unparseable or if the date is invalid
 //   Base64:      Base-64 encoded string, converted to NSData; return error if encoding is invalid
-+ (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
-                           unspecifiedTransformType:(NSString *)unspecifiedTransformType;
++ (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, id> *)typeMap
+                                           fallback:(id)fallback;
 
 // Similar to the attribute parser, but operates on immediate members of the node.
 // This is a node transform.
-+ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
-                        unspecifiedTransformType:(NSString *)unspecifiedTransformType;
++ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, id> *)typeMap
+                                        fallback:(id)fallback;
 
 // Filtering attributes. The whitelisting variant keeps only the attributes of which
 // the name is in the whitelist; the blacklisting one throws away only those of which

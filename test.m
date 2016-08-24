@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
                                               usedEncoding:&enc
                                                      error:NULL];
 
-        NSDictionary<NSString *, NSString *> *typeMap = @{
+        NSDictionary<NSString *, id> *typeMap = @{
             @"StatusCode":                 SCIXMLParserTypeInteger,
             @"StatusDate":                 SCIXMLParserTypeDate,
             @"TemplateExpirationDate":     SCIXMLParserTypeHex,
@@ -24,13 +24,22 @@ int main(int argc, char *argv[])
         NSDictionary<NSString *, NSArray<NSString *> *> *groupingMap = @{
             @"TransactionList": @[ @"Transaction", @"foo" ],
         };
+
+        id _Nullable (^censoringTransform)(NSString *, id) = ^id _Nullable(NSString *name, id value) {
+            if ([name isEqualToString:@"Currency"]) {
+                return @"REDACTED";
+            }
+
+            return value;
+        };
+
         NSArray<id<SCIXMLCompactingTransform>> *transforms = @[
             SCIXMLCompactingTransform.attributeFlatteningTransform,
             SCIXMLCompactingTransform.elementTypeFilterTransform,
             SCIXMLCompactingTransform.textNodeFlatteningTransform,
             [SCIXMLCompactingTransform childFlatteningTransformWithGroupingMap:groupingMap],
             [SCIXMLCompactingTransform memberParserTransformWithTypeMap:typeMap
-                                               unspecifiedTransformType:SCIXMLParserTypeIdentity],
+                                                               fallback:censoringTransform],
         ];
 
         id <SCIXMLCompactingTransform> transform;

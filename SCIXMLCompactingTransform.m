@@ -51,6 +51,10 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSDictionary<NSString *, id _Nullable (^)(NSString *, id)> *)parserSubtransforms;
 + (NSDictionary<NSString *, id _Nullable (^)(NSString *, id)> *)unsafeLoadParserSubtransforms;
 
++ (id _Nullable (^)(NSString *, id))parserSubtransformWithTypeMap:(NSDictionary<NSString *, id> *)typeMap
+                                                             name:(NSString *)name
+                                                         fallback:(id)fallback;
+
 @end
 NS_ASSUME_NONNULL_END
 
@@ -348,11 +352,11 @@ NS_ASSUME_NONNULL_END
     return transform;
 }
 
-+ (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
-                           unspecifiedTransformType:(NSString *)unspecifiedTransformType {
++ (instancetype)attributeParserTransformWithTypeMap:(NSDictionary<NSString *, id> *)typeMap
+                                           fallback:(id)fallback {
 
     NSParameterAssert(typeMap);
-    NSParameterAssert(unspecifiedTransformType);
+    NSParameterAssert(fallback);
 
     SCIXMLCompactingTransform *transform = [self new];
 
@@ -366,21 +370,23 @@ NS_ASSUME_NONNULL_END
         NSString *name = nameValuePair[SCIXMLAttributeTransformKeyName];
         id value       = nameValuePair[SCIXMLAttributeTransformKeyValue];
 
-        NSString *transformName = typeMap[name] ?: unspecifiedTransformType;
-        id _Nullable (^subtransform)(NSString *, id) = self.parserSubtransforms[transformName];
-
         // TODO(H2CO3): check that subtransform is not nil
+        id _Nullable (^subtransform)(NSString *, id);
+        subtransform = [self parserSubtransformWithTypeMap:typeMap
+                                                      name:name
+                                                  fallback:fallback];
+
         return subtransform(name, value);
     };
 
     return transform;
 }
 
-+ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, NSString *> *)typeMap
-                        unspecifiedTransformType:(NSString *)unspecifiedTransformType {
++ (instancetype)memberParserTransformWithTypeMap:(NSDictionary<NSString *, id> *)typeMap
+                                        fallback:(id)fallback {
 
     NSParameterAssert(typeMap);
-    NSParameterAssert(unspecifiedTransformType);
+    NSParameterAssert(fallback);
 
     SCIXMLCompactingTransform *transform = [self new];
 
@@ -394,10 +400,12 @@ NS_ASSUME_NONNULL_END
         NSMutableDictionary *node = [immutableNode sci_mutableCopyOrSelf];
 
         for (NSString *name in memberNames) {
-            NSString *transformName = typeMap[name] ?: unspecifiedTransformType;
-            id _Nullable (^subtransform)(NSString *, id) = self.parserSubtransforms[transformName];
-
             // TODO(H2CO3): check that subtransform is not nil
+            id _Nullable (^subtransform)(NSString *, id);
+            subtransform = [self parserSubtransformWithTypeMap:typeMap
+                                                          name:name
+                                                      fallback:fallback];
+
             id result = subtransform(name, node[name]);
 
             // If transforming any of the members fails, return the resulting error
@@ -573,6 +581,32 @@ NS_ASSUME_NONNULL_END
         // TODO(H2CO3): implement all parser transforms
     };
 };
+
++ (id _Nullable (^)(NSString *, id))parserSubtransformWithTypeMap:(NSDictionary<NSString *, id> *)typeMap
+                                                             name:(NSString *)name
+                                                         fallback:(id)fallback {
+
+    NSParameterAssert(typeMap);
+    NSParameterAssert(name);
+    NSParameterAssert(fallback);
+
+    id subtransformNameOrBlock = typeMap[name] ?: fallback;
+
+    // if it's a transform name, then look it up in the table of predefined parser subtransforms
+    if ([subtransformNameOrBlock sci_isString]) {
+        // TODO(H2CO3): check that 'parserSubtransforms[subtransformNameOrBlock]' is not nil
+        return self.parserSubtransforms[subtransformNameOrBlock];
+    }
+
+    // Otherwise, it must be a block
+    NSAssert(
+        [subtransformNameOrBlock isKindOfClass:NSClassFromString(@"NSBlock")],
+        @"non-string parser transform must be a block with signature 'id _Nullable (^)(NSString *, id)'"
+    );
+
+    // TODO(H2CO3): assert that it has the right signature
+    return subtransformNameOrBlock;
+}
 
 + (instancetype)attributeFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist {
     NSParameterAssert(whitelist);
