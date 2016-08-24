@@ -141,11 +141,18 @@ NS_ASSUME_NONNULL_BEGIN
 // A transform that removes the 'children' array from a parent node and puts
 // its child nodes directly into it, where the keys are the tag names
 // of element children. The children will also have their name removed.
-// If a child with a specific tag name appears more than once in the parent node,
-// then all children with that tag name will be grouped into an NSArray.
+// Children of which the name exists in the groupingMap for the key that is the
+// node name of their parent will be added as members of an array for the
+// child name as the key in the parent node dictionary, regardless of their count
+// (i.e. even zero or one child will be added to an array).
+// If a child element of a particular tag name is encountered multiple times, then:
+//   * if the tag name is in the groupingMap, as described above, then
+//     grouping in an array occurs
+//   * otherwise, an error about duplicate children is returned.
+// If 'groupingMap' is nil, it is assumed to be an empty dictionary.
 // TODO(H2CO3): document behavior when encountering a malformed tree
 // This is a node transform.
-+ (instancetype)childFlatteningTransform;
++ (instancetype)childFlatteningTransformWithGroupingMap:(NSDictionary<NSString *, NSArray<NSString *> *> *_Nullable)groupingMap;
 
 // This transform flattens text and CDATA nodes: it replaces them with just their string content.
 //

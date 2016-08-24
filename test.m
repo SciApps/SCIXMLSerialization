@@ -18,12 +18,17 @@ int main(int argc, char *argv[])
             @"TemplateAllowed":            SCIXMLParserTypeCXXBool,
             @"FixedValue":                 SCIXMLParserTypeBool,
             @"CouponEnabled":              SCIXMLParserTypeCXXBool,
+            @"Extra":                      SCIXMLParserTypeBase64,
+            @"data":                       SCIXMLParserTypeBase64,
+        };
+        NSDictionary<NSString *, NSArray<NSString *> *> *groupingMap = @{
+            @"TransactionList": @[ @"Transaction", @"foo" ],
         };
         NSArray<id<SCIXMLCompactingTransform>> *transforms = @[
             SCIXMLCompactingTransform.attributeFlatteningTransform,
             SCIXMLCompactingTransform.elementTypeFilterTransform,
             SCIXMLCompactingTransform.textNodeFlatteningTransform,
-            SCIXMLCompactingTransform.childFlatteningTransform,
+            [SCIXMLCompactingTransform childFlatteningTransformWithGroupingMap:groupingMap],
             [SCIXMLCompactingTransform memberParserTransformWithTypeMap:typeMap
                                                unspecifiedTransformType:SCIXMLParserTypeIdentity],
         ];

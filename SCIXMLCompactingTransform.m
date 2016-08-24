@@ -193,7 +193,8 @@ NS_ASSUME_NONNULL_END
     return transform;
 }
 
-+ (instancetype)childFlatteningTransform {
++ (instancetype)childFlatteningTransformWithGroupingMap:(NSDictionary<NSString *, NSArray<NSString *> *> *_Nullable)groupingMap {
+
     SCIXMLCompactingTransform *transform = [self new];
 
     transform.nodeTransform = ^id (NSDictionary *immutableNode) {
@@ -202,6 +203,7 @@ NS_ASSUME_NONNULL_END
         }
 
         NSArray<NSString *> *children = immutableNode[SCIXMLNodeKeyChildren];
+        NSString *parentName = immutableNode[SCIXMLNodeKeyName];
 
         // Spare a mutableCopy if the children are already removed
         if (children == nil) {
@@ -218,11 +220,35 @@ NS_ASSUME_NONNULL_END
             return immutableNode;
         }
 
+        // If the node does not have a name or the name is not an NSString, that's an error
+        if (parentName == nil || parentName.sci_isString == NO) {
+            return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                         format:@"node %p has no name or its name is not a string",
+                                                (void *)immutableNode];
+        }
+
         // Everything is awesome, so we can start collapsing the structure.
         // Start by removing the 'children' array.
         NSMutableDictionary *node = [immutableNode sci_mutableCopyOrSelf];
         node[SCIXMLNodeKeyChildren] = nil;
 
+        // Then, add (mutable) arrays for child names of which the corresponding
+        // children should be grouped in an array.
+        // If the node already has keys that are contained in the goroupedChildNames set,
+        // that's a potential error.
+        NSSet<NSString *> *groupedChildNames = [NSSet setWithArray:groupingMap[parentName] ?: @[]];
+
+        for (NSString *childName in groupedChildNames) {
+            if (node[childName] != nil) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"key '%@' already exists in the parent node, but"
+                                                    " it is the name of grouped children", childName];
+            }
+
+            node[childName] = [NSMutableArray new];
+        }
+
+        // Now enumerate all children and determine if and how they should be flattened.
         for (NSDictionary *child in children) {
             if (child.sci_isDictionary == NO) {
                 return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
@@ -230,24 +256,51 @@ NS_ASSUME_NONNULL_END
                                                     __PRETTY_FUNCTION__];
             }
 
-            NSString *name = child[SCIXMLNodeKeyName];
-            if (name.sci_isString == NO) {
+            NSString *childName = child[SCIXMLNodeKeyName];
+            if (childName == nil || childName.sci_isString == NO) {
                 return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
                                              format:@"%s: child nodes must have a string name",
                                                     __PRETTY_FUNCTION__];
             }
 
-            // TODO(H2CO3): implement grouping of children by name
+            BOOL shouldGroupChild = [groupedChildNames containsObject:childName];
+
+            // If the node already has a key for this child's name, and it is not
+            // because it's an array that we added on purpose, that's an error
+            if (node[childName] != nil && shouldGroupChild == NO) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"duplicate child '%@' in node", childName];
+            }
+
+            id objectToAdd = nil;
+
+            // Check the type of the child. If it's a trivial node that only wraps
+            // one single string, then replace it by that string.
+            // Otherwise, leave it alone, except that its name should be removed
+            // because it is redundant since its name will be its key in the parent.
             if (child.sci_isOneChildCanonicalStringNode) {
                 NSArray<NSString *> *children = child[SCIXMLNodeKeyChildren];
-                node[name] = children.firstObject;
+                objectToAdd = children.firstObject;
+                assert(children.firstObject.sci_isString);
             } else {
-                // Remove the name of the child (it has become redundant).
                 // Optimize for the common case where the child has been created by built-in
                 // transformations and is therefore mutable. Avoid copying in that case.
                 NSMutableDictionary *mutableChild = [child sci_mutableCopyOrSelf];
                 mutableChild[SCIXMLNodeKeyName] = nil;
-                node[name] = mutableChild;
+                objectToAdd = mutableChild;
+            }
+
+            assert(objectToAdd != nil);
+
+            // If the child is to be added to an array, then do so. Otherwise,
+            // just set it for its name as a key in its parent node dictionary.
+            if (shouldGroupChild) {
+                NSMutableArray *childrenArray = node[childName];
+                assert(childrenArray.sci_isMutableArray);
+                [childrenArray addObject:objectToAdd];
+            } else {
+                assert(node[childName] == nil);
+                node[childName] = objectToAdd;
             }
         }
 
@@ -487,10 +540,35 @@ NS_ASSUME_NONNULL_END
                                          format:@"value of key '%@' ('%@') isn't a valid ISO-8601 string",
                                                 name, value];
         },
-        SCIXMLParserTypeBase64: ^id _Nullable (NSString *name, id value) {
-            // TODO(H2CO3): implement
-            NSAssert(NO, @"Unimplemented");
-            return nil;
+        SCIXMLParserTypeBase64: ^id _Nullable (NSString *name, NSString *value) {
+            if (value.sci_isString == NO) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"expected an NSString for key '%@'", name];
+            }
+
+            // Remove any whitespace (it's customary to present Base-64 in a tabulated, multiline shape)
+            NSCharacterSet *wsCharset = NSCharacterSet.whitespaceAndNewlineCharacterSet;
+
+            if ([value rangeOfCharacterFromSet:wsCharset].location != NSNotFound) {
+                NSMutableString *noWsString = [value mutableCopy];
+
+                [noWsString replaceOccurrencesOfString:@"\\s"
+                                            withString:@""
+                                               options:NSRegularExpressionSearch
+                                                 range:(NSRange){ 0, noWsString.length }];
+
+                value = noWsString;
+            }
+
+            NSData *data = [[NSData alloc] initWithBase64EncodedString:value
+                                                               options:kNilOptions];
+
+            if (data == nil) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"value for key '%@' is not a Base-64 string", name];
+            }
+
+            return data;
         },
         // TODO(H2CO3): implement all parser transforms
     };
