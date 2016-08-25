@@ -11,7 +11,13 @@ int main(int argc, char *argv[])
 
         NSDictionary<NSString *, id> *typeMap = @{
             @"StatusCode":                 SCIXMLParserTypeInteger,
-            @"StatusDate":                 SCIXMLParserTypeDate,
+            @"StatusDate":                 ^NSDate *(NSString *name, NSString *value) {
+                NSDateFormatter *dateFormatter = [NSDateFormatter new];
+                dateFormatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+                dateFormatter.timeZone = [NSTimeZone timeZoneWithName:@"UTC"];
+                dateFormatter.dateFormat = @"yyyyMMdd";
+                return [dateFormatter dateFromString:value];
+            },
             @"TemplateExpirationDate":     SCIXMLParserTypeHex,
             @"ValueMax":                   SCIXMLParserTypeNumber,
             @"Osszeg":                     SCIXMLParserTypeFloating,
@@ -51,29 +57,6 @@ int main(int argc, char *argv[])
                                                compactingTransform:transform
                                                              error:&error];
         NSLog(@"%@", obj ?: error.localizedDescription);
-
-
-        // NSError *error = nil;
-        // NSDictionary *root = [SCIXMLSerialization canonicalDictionaryWithXMLString:inXML
-        //                                                                      error:&error];
-        // if (error) {
-        //     NSLog(@"Parser Error: %@", error);
-        //     return -1;
-        // }
-
-
-        // NSString *outXML = [SCIXMLSerialization xmlStringWithCanonicalDictionary:root
-        //                                                              indentation:@"\t"
-        //                                                                    error:&error];
-        // if (error) {
-        //     NSLog(@"Serialization Error: %@", error);
-        //     return -1;
-        // }
-
-        // [outXML writeToFile:@(argv[2])
-        //          atomically:YES
-        //            encoding:NSUTF8StringEncoding
-        //               error:NULL];
     }
 
     return 0;

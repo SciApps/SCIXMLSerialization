@@ -600,8 +600,8 @@ NS_ASSUME_NONNULL_END
 
     // Otherwise, it must be a block
     NSAssert(
-        [subtransformNameOrBlock isKindOfClass:NSClassFromString(@"NSBlock")],
-        @"non-string parser transform must be a block with signature 'id _Nullable (^)(NSString *, id)'"
+        SCIBlockIsParserSubtransform(subtransformNameOrBlock),
+        @"parser transform block must be compatible with signature 'id _Nullable (^)(NSString *, id)'"
     );
 
     // TODO(H2CO3): assert that it has the right signature

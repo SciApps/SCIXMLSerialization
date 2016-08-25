@@ -27,8 +27,107 @@ typedef NS_ENUM(NSUInteger, SCINumberParsingType) {
     SCINumberParsingTypeDouble,
 };
 
+typedef NS_ENUM(NSUInteger, BlockFlags) {
+    BLOCK_HAS_COPY_DISPOSE = 1 << 25,
+    BLOCK_HAS_CTOR         = 1 << 26, // helpers have C++ code
+    BLOCK_IS_GLOBAL        = 1 << 28,
+    BLOCK_HAS_STRET        = 1 << 29, // iff BLOCK_HAS_SIGNATURE
+    BLOCK_HAS_SIGNATURE    = 1 << 30,
+};
+
+
+typedef struct {
+    unsigned long reserved;
+    unsigned long size;
+    const char *signature;
+} Block_descriptor_unmanaged;
+
+typedef struct {
+    unsigned long reserved;
+    unsigned long size;
+    void (*copy_helper)(void *dst, void *src);
+    void (*dispose_helper)(void *src);
+    const char *signature;
+} Block_descriptor_copy_dispose;
+
+typedef union {
+    Block_descriptor_unmanaged u;
+    Block_descriptor_copy_dispose c;
+} Block_descriptor;
+
+typedef struct {
+    void *isa;
+    int flags;
+    int reserved;
+    void (*invoke)(void *, ...);
+    void *descriptor;
+} Block_literal;
+
 
 NS_ASSUME_NONNULL_BEGIN
+
+static NSMethodSignature *_Nullable SCISignatureForBlock(id block) {
+    if (block == nil || [block isKindOfClass:NSClassFromString(@"NSBlock")] == NO) {
+        return nil;
+    }
+
+    Block_literal *block_struct = (__bridge Block_literal *)block;
+    Block_descriptor *descriptor = block_struct->descriptor;
+    const char *signature = NULL;
+
+    if (block_struct->flags & BLOCK_HAS_COPY_DISPOSE) {
+        signature = descriptor->c.signature;
+    } else {
+        signature = descriptor->u.signature;
+    }
+
+    if (signature == NULL) {
+        return nil;
+    }
+
+    return [NSMethodSignature signatureWithObjCTypes:signature];
+}
+
+BOOL SCIBlockIsParserSubtransform(id block) {
+    id referenceBlock = ^id _Nullable (NSString *name, id value) {
+        return nil;
+    };
+
+    NSMethodSignature *expectedSignature = SCISignatureForBlock(referenceBlock);
+    NSMethodSignature *actualSignature   = SCISignatureForBlock(block);
+
+    NSCAssert(expectedSignature != nil, @"reference block has no signature");
+
+    // block has no signature or it's not even a block. Impostor!
+    if (actualSignature == nil) {
+        return NO;
+    }
+
+    if (expectedSignature.numberOfArguments != actualSignature.numberOfArguments) {
+        return NO;
+    }
+
+    // The constraints on the signature of a parser block are the following:
+    // 1. The return type must be an Objective-C object type (including id)
+    // 2. The 0th argument (self) must be the same as that of the referenceBlock
+    // 3. The 1st argument (name) must be an NSString *
+    // 4. The 2nd argument (value) must also be an Objective-C object type
+
+    NSString *expectedReturnType = @(@encode(id));
+    NSString *expectedSelfType   = @([expectedSignature getArgumentTypeAtIndex:0]);
+    NSString *expectedNameType   = @([expectedSignature getArgumentTypeAtIndex:1]);
+    NSString *expectedValueType  = @(@encode(id));
+
+    NSString *actualReturnType   = @(actualSignature.methodReturnType);
+    NSString *actualSelfType     = @([actualSignature getArgumentTypeAtIndex:0]);
+    NSString *actualNameType     = @([actualSignature getArgumentTypeAtIndex:1]);
+    NSString *actualValueType    = @([actualSignature getArgumentTypeAtIndex:2]);
+
+    return [actualReturnType hasPrefix:expectedReturnType]
+        && [actualSelfType isEqualToString:expectedSelfType]
+        && [actualNameType isEqualToString:expectedNameType]
+        && [actualValueType hasPrefix:expectedValueType];
+}
 
 static const char *SCISkipBasePrefix(const char *str, unsigned base) {
     NSCParameterAssert(str);

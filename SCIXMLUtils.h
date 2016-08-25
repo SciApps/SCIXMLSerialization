@@ -14,6 +14,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+BOOL SCIBlockIsParserSubtransform(id block);
+
 id SCIStringToDecimal(NSString *str);
 id SCIStringToUnsigned(NSString *str, unsigned base);
 id SCIStringToInteger(NSString *str);
