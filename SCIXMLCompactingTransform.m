@@ -604,7 +604,6 @@ NS_ASSUME_NONNULL_END
         @"parser transform block must be compatible with signature 'id _Nullable (^)(NSString *, id)'"
     );
 
-    // TODO(H2CO3): assert that it has the right signature
     return subtransformNameOrBlock;
 }
 

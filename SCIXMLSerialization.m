@@ -29,6 +29,16 @@
 // Returns nil if the property is not of the specified type.
 #define GET_NODE_PROPERTY(getter, key, cls) ((cls *_Nullable)getter((key), cls.class))
 
+// If a canonicalizing provider or subtransform fails (returns nil), and if
+// the user requested error information (i.e. the out NSError ** parameter
+// is not NULL), then the subtransform MUST populate the out error parameter.
+#define SCIAssertCanonicalizingTransformPopulatedError(result, error)   \
+    NSAssert(                                                           \
+        (result) != nil || (error) == NULL || *(error) != nil,          \
+        @"providers and subtransforms must populate the "               \
+        "out error parameter when requested"                            \
+    )
+
 
 NSString *const SCIXMLNodeKeyType       = @"type";
 NSString *const SCIXMLNodeKeyName       = @"name";
@@ -44,6 +54,14 @@ NSString *const SCIXMLNodeTypeEntityRef = @"entityref";
 
 
 NS_ASSUME_NONNULL_BEGIN
+
+typedef NSDictionary *_Nullable (^SCIXMLTypewiseCanonicalizerSubtransform)(
+    id,
+    id <SCIXMLCanonicalizingTransform>,
+    NSError *__autoreleasing *
+);
+
+
 @interface SCIXMLSerialization ()
 
 + (BOOL)libxmlUsesLibcAllocators;
@@ -66,7 +84,6 @@ NS_ASSUME_NONNULL_BEGIN
                                                         error:(NSError *__autoreleasing *)error;
 
 + (NSDictionary *)nodeWriters;
-
 + (NSDictionary *)unsafeLoadNodeWriters;
 
 + (BOOL (^)(NSDictionary *, xmlTextWriter *, NSError *__autoreleasing *))nodeWriterWithFunction:(int (*)(xmlTextWriter *, const xmlChar *))writerFunction;
@@ -81,7 +98,20 @@ NS_ASSUME_NONNULL_BEGIN
                                 withTransform:(id <SCIXMLCanonicalizingTransform>)transform
                                         error:(NSError *__autoreleasing *)error;
 
++ (id _Nullable)callTransformProvider:(id _Nullable (^_Nullable)(id, NSError *__autoreleasing *))provider
+                        compactedNode:(id)compactedNode
+                         providerName:(NSString *)providerName
+                        fallbackValue:(id _Nullable)fallbackValue
+               expectingResultOfClass:(Class)expectedClass
+                                error:(NSError *__autoreleasing *)error;
+
++ (NSDictionary<NSString *, SCIXMLTypewiseCanonicalizerSubtransform> *)canonicalizers;
++ (NSDictionary<NSString *, SCIXMLTypewiseCanonicalizerSubtransform> *)unsafeLoadCanonicalizers;
+
++ (SCIXMLTypewiseCanonicalizerSubtransform)textNodeCanonicalizerWithType:(NSString *)type;
+
 @end
+
 NS_ASSUME_NONNULL_END
 
 
@@ -106,6 +136,11 @@ NS_ASSUME_NONNULL_END
                                         error:(NSError *__autoreleasing *)error {
 
     NSParameterAssert(node);
+
+    // never leave out error parameter uninitialized
+    if (error) {
+        *error = nil;
+    }
 
     NSMutableDictionary *dict = [NSMutableDictionary new];
 
@@ -177,6 +212,7 @@ NS_ASSUME_NONNULL_END
     NSParameterAssert(dictionary);
     NSParameterAssert(length);
 
+    // never leave out parameters uninitialized
     *length = 0;
     if (error) {
         *error = nil;
@@ -475,6 +511,11 @@ NS_ASSUME_NONNULL_END
     NSParameterAssert(canonical);
     NSParameterAssert(transform);
 
+    // never leave out error parameter uninitialized
+    if (error) {
+        *error = nil;
+    }
+
     // We know that the canonical dictionary is mutable; we use this knowledge
     // to optimize the traversal by eliminating unnecessary memory allocations.
     assert(canonical.sci_isMutableDictionary);
@@ -600,11 +641,241 @@ NS_ASSUME_NONNULL_END
     NSParameterAssert(compacted);
     NSParameterAssert(transform);
 
+    // never leave out error parameter uninitialized
     if (error) {
-        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                       format:@"method not implemented: %s", __PRETTY_FUNCTION__];
+        *error = nil;
     }
-    return nil;
+
+    // Every object must have a type
+    NSString *nodeType = [self callTransformProvider:transform.typeProvider
+                                       compactedNode:compacted
+                                        providerName:SCIXMLNodeKeyType
+                                       fallbackValue:nil
+                              expectingResultOfClass:NSString.class
+                                               error:error];
+
+    if (nodeType == nil) {
+        return nil;
+    }
+
+    // dispatch the appropriate transform based on the node type
+    SCIXMLTypewiseCanonicalizerSubtransform nodeTransform = self.canonicalizers[nodeType];
+
+    if (nodeTransform == nil) {
+        if (error) {
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                           format:@"node of type '%@' cannot be canonicalized", nodeType];
+        }
+        return nil;
+    }
+
+    return nodeTransform(compacted, transform, error);
+}
+
++ (id _Nullable)callTransformProvider:(id _Nullable (^_Nullable)(id, NSError *__autoreleasing *))provider
+                        compactedNode:(id)compactedNode
+                         providerName:(NSString *)providerName
+                        fallbackValue:(id _Nullable)fallbackValue
+               expectingResultOfClass:(Class)expectedClass
+                                error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(compactedNode);
+    NSParameterAssert(providerName);
+    NSParameterAssert(expectedClass);
+
+    // never leave out error parameter uninitialized
+    if (error) {
+        *error = nil;
+    }
+
+    id result = nil;
+
+    if (provider) {
+        result = provider(compactedNode, error);
+        SCIAssertCanonicalizingTransformPopulatedError(result, error);
+
+        if (result == nil) {
+            return nil;
+        }
+    } else if (fallbackValue) {
+        NSAssert([fallbackValue isKindOfClass:expectedClass], @"fallback value is of the wrong class");
+        result = fallbackValue;
+    }
+
+    if (result == nil || [result isKindOfClass:expectedClass] == NO) {
+        if (error) {
+            NSString *expectedClassName = NSStringFromClass(expectedClass);
+            NSString *actualClassName = result ? NSStringFromClass([result class]) : @"<object was nil>";
+
+            *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                           format:@"Provider '%@' returned a value of unexpected type:"
+                                                  " '%@' (expected a(n) '%@' instead); or there was no"
+                                                  " type provider and no fallback value."
+                                                  " The offending node is: %p",
+                                                  providerName,
+                                                  actualClassName,
+                                                  expectedClassName,
+                                                  (void *)compactedNode];
+        }
+        return nil;
+    }
+
+    return result;
+}
+
++ (NSDictionary<NSString *, SCIXMLTypewiseCanonicalizerSubtransform> *)canonicalizers {
+    static NSDictionary<NSString *, SCIXMLTypewiseCanonicalizerSubtransform> *canonicalizerDict = nil;
+    static dispatch_once_t token;
+
+    dispatch_once(&token, ^{
+        canonicalizerDict = [self unsafeLoadCanonicalizers];
+    });
+
+    return canonicalizerDict;
+}
+
++ (NSDictionary<NSString *, SCIXMLTypewiseCanonicalizerSubtransform> *)unsafeLoadCanonicalizers {
+    return @{
+        SCIXMLNodeTypeElement: ^NSDictionary *_Nullable(
+            id node,
+            id <SCIXMLCanonicalizingTransform> transform,
+            NSError *__autoreleasing *error
+        ) {
+            // Name of the element. It must be a string; furthermore, it must be a valid XML tag name.
+            NSString *name = [self callTransformProvider:transform.nameProvider
+                                           compactedNode:node
+                                            providerName:SCIXMLNodeKeyName
+                                           fallbackValue:nil
+                                  expectingResultOfClass:NSString.class
+                                                   error:error];
+
+            if (name == nil) {
+                return nil;
+            }
+
+            // The set of attribute names. Members of the set should be strings.
+            // Moreover, they all should be valid XML attribute names.
+            NSSet<NSString *> *attributeNames = [self callTransformProvider:transform.attributeProvider
+                                                              compactedNode:node
+                                                               providerName:SCIXMLNodeKeyAttributes
+                                                              fallbackValue:[NSSet new]
+                                                     expectingResultOfClass:NSSet.class
+                                                                      error:error];
+
+            if (attributeNames == nil) {
+                return nil;
+            }
+
+            // if the node provides any attributes but no attribute transform, that's an error
+            if (attributeNames.count > 0 && transform.attributeTransform == nil) {
+                if (error) {
+                    *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                   format:@"node %p provides %lu attribute names but"
+                                                          " transform has no attribute subtransform",
+                                                          (void *)node,
+                                                          (unsigned long)attributeNames.count];
+                }
+                return nil;
+            }
+
+            // Child nodes which are to be canonicalized recursively
+            NSArray *children = [self callTransformProvider:transform.childProvider
+                                              compactedNode:node
+                                               providerName:SCIXMLNodeKeyChildren
+                                              fallbackValue:@[]
+                                     expectingResultOfClass:NSArray.class
+                                                      error:error];
+
+            if (children == nil) {
+                return nil;
+            }
+
+            // First, extract attributes
+            NSMutableDictionary *canonicalAttributes = [NSMutableDictionary new];
+
+            for (NSString *attributeName in attributeNames) {
+                // attributeName.sci_isString is asserted because the provider is statically typechecked
+                assert(attributeName.sci_isString);
+                assert(transform.attributeTransform);
+
+                NSString *attributeValue = transform.attributeTransform(node, attributeName, error);
+                if (attributeValue == nil) {
+                    return nil;
+                }
+
+                // attributeValue.sci_isString is asserted because the transform is statically typechecked
+                assert(attributeValue.sci_isString);
+                canonicalAttributes[attributeName] = attributeValue;
+            }
+
+            // Then, create canonical children recursively
+            NSMutableArray *canonicalChildren = [NSMutableArray new];
+
+            for (id child in children) {
+                NSDictionary *canonicalChild = [self canonicalizeObject:child
+                                                          withTransform:transform
+                                                                  error:error];
+
+                if (canonicalChild == nil) {
+                    return nil;
+                }
+
+                [canonicalChildren addObject:canonicalChild];
+            }
+
+            // Finally, form a canonical node
+            return @{
+                SCIXMLNodeKeyType:       SCIXMLNodeTypeElement,
+                SCIXMLNodeKeyName:       name,
+                SCIXMLNodeKeyAttributes: canonicalAttributes,
+                SCIXMLNodeKeyChildren:   canonicalChildren,
+            };
+        },
+
+        // Text-type nodes are very similar, their subtransforms are easily autogenerated
+        SCIXMLNodeTypeText:    [self textNodeCanonicalizerWithType:SCIXMLNodeTypeText],
+        SCIXMLNodeTypeComment: [self textNodeCanonicalizerWithType:SCIXMLNodeTypeComment],
+        SCIXMLNodeTypeCDATA:   [self textNodeCanonicalizerWithType:SCIXMLNodeTypeCDATA],
+
+        SCIXMLNodeTypeEntityRef: ^NSDictionary *_Nullable(
+            id node,
+            id <SCIXMLCanonicalizingTransform> transform,
+            NSError *__autoreleasing *error
+        ) {
+            // TODO(H2CO3): implement
+            if (error) {
+                *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
+                                               format:@"Unimplemented: EntityRef"];
+            }
+            return nil;
+        },
+    };
+}
+
++ (SCIXMLTypewiseCanonicalizerSubtransform)textNodeCanonicalizerWithType:(NSString *)type {
+    NSParameterAssert(type);
+
+    return ^NSDictionary *_Nullable(
+        id node,
+        id <SCIXMLCanonicalizingTransform> transform,
+        NSError *__autoreleasing *error
+    ) {
+        NSString *text = [self callTransformProvider:transform.textProvider
+                                       compactedNode:node
+                                        providerName:SCIXMLNodeKeyText
+                                       fallbackValue:nil
+                              expectingResultOfClass:NSString.class
+                                               error:error];
+
+        if (text == nil) {
+            return nil;
+        }
+
+        return @{
+            SCIXMLNodeKeyType: type,
+            SCIXMLNodeKeyText: text,
+        };
+    };
 }
 
 #pragma mark - Parsing/Deserialization from Strings
