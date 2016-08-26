@@ -518,15 +518,15 @@ NS_ASSUME_NONNULL_END
 
     // We know that the canonical dictionary is mutable; we use this knowledge
     // to optimize the traversal by eliminating unnecessary memory allocations.
-    assert(canonical.sci_isMutableDictionary);
-    NSMutableDictionary *node = (NSMutableDictionary *)canonical;
+    // (we use mutableCopyOrSelf in lieu of an assertion for more robustness.)
+    NSMutableDictionary *node = [canonical sci_mutableCopyOrSelf];
 
     // Perform a bottom-up traversal of the node tree.
     // The reason for the bottom-up traversal is that this way, the structure
     // of the 'remaining' tree (the part above the node currently being processed)
     // is guaranteed to remain canonical, since the transform has no chance of
     // modifying it (for obvious temporal reasons).
-    NSMutableArray *children = node[SCIXMLNodeKeyChildren];
+    NSMutableArray *children = [node[SCIXMLNodeKeyChildren] sci_mutableCopyOrSelf];
     assert(children == nil || children.sci_isMutableArray);
 
     // So, we recurse _first_, ...
@@ -586,7 +586,7 @@ NS_ASSUME_NONNULL_END
     }
 
     // ...or an attribute dictionary.
-    NSMutableDictionary *attributes = node[SCIXMLNodeKeyAttributes];
+    NSMutableDictionary *attributes = [node[SCIXMLNodeKeyAttributes] sci_mutableCopyOrSelf];
 
     if (attributes && transform.attributeTransform) {
         assert(attributes.sci_isMutableDictionary);
@@ -791,25 +791,40 @@ NS_ASSUME_NONNULL_END
             }
 
             // First, extract attributes
-            NSMutableDictionary *canonicalAttributes = [NSMutableDictionary new];
+            NSMutableDictionary<NSString *, NSString *> *canonicalAttributes;
+            canonicalAttributes = [NSMutableDictionary dictionaryWithCapacity:attributeNames.count];
 
             for (NSString *attributeName in attributeNames) {
-                // attributeName.sci_isString is asserted because the provider is statically typechecked
-                assert(attributeName.sci_isString);
                 assert(transform.attributeTransform);
+
+                // In canonical form, attribute names should be strings, ...
+                if (attributeName.sci_isString == NO) {
+                    if (error) {
+                        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"attribute names must be strings"];
+                    }
+                    return nil;
+                }
 
                 NSString *attributeValue = transform.attributeTransform(node, attributeName, error);
                 if (attributeValue == nil) {
                     return nil;
                 }
 
-                // attributeValue.sci_isString is asserted because the transform is statically typechecked
-                assert(attributeValue.sci_isString);
+                // ...and attribute values must also be strings.
+                if (attributeValue.sci_isString == NO) {
+                    if (error) {
+                        *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                       format:@"attribute values must be strings"];
+                    }
+                    return nil;
+                }
+
                 canonicalAttributes[attributeName] = attributeValue;
             }
 
             // Then, create canonical children recursively
-            NSMutableArray *canonicalChildren = [NSMutableArray new];
+            NSMutableArray *canonicalChildren = [NSMutableArray arrayWithCapacity:children.count];
 
             for (id child in children) {
                 NSDictionary *canonicalChild = [self canonicalizeObject:child
@@ -842,12 +857,21 @@ NS_ASSUME_NONNULL_END
             id <SCIXMLCanonicalizingTransform> transform,
             NSError *__autoreleasing *error
         ) {
-            // TODO(H2CO3): implement
-            if (error) {
-                *error = [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeUnimplemented
-                                               format:@"Unimplemented: EntityRef"];
+            NSString *name = [self callTransformProvider:transform.nameProvider
+                                           compactedNode:node
+                                            providerName:SCIXMLNodeKeyName
+                                           fallbackValue:nil
+                                  expectingResultOfClass:NSString.class
+                                                   error:error];
+
+            if (name == nil) {
+                return nil;
             }
-            return nil;
+
+            return @{
+                SCIXMLNodeKeyType: SCIXMLNodeTypeEntityRef,
+                SCIXMLNodeKeyName: name,
+            };
         },
     };
 }
