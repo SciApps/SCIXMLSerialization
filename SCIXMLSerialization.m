@@ -526,7 +526,8 @@ NS_ASSUME_NONNULL_END
     // of the 'remaining' tree (the part above the node currently being processed)
     // is guaranteed to remain canonical, since the transform has no chance of
     // modifying it (for obvious temporal reasons).
-    NSMutableArray *children = [node[SCIXMLNodeKeyChildren] sci_mutableCopyOrSelf];
+    node[SCIXMLNodeKeyChildren] = [node[SCIXMLNodeKeyChildren] sci_mutableCopyOrSelf];
+    NSMutableArray *children = node[SCIXMLNodeKeyChildren];
     assert(children == nil || children.sci_isMutableArray);
 
     // So, we recurse _first_, ...
@@ -586,7 +587,8 @@ NS_ASSUME_NONNULL_END
     }
 
     // ...or an attribute dictionary.
-    NSMutableDictionary *attributes = [node[SCIXMLNodeKeyAttributes] sci_mutableCopyOrSelf];
+    node[SCIXMLNodeKeyAttributes] = [node[SCIXMLNodeKeyAttributes] sci_mutableCopyOrSelf];
+    NSMutableDictionary *attributes = node[SCIXMLNodeKeyAttributes];
 
     if (attributes && transform.attributeTransform) {
         assert(attributes.sci_isMutableDictionary);
