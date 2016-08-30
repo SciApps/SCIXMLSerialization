@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
                                                              error:&error];
         NSLog(@"%@", obj ?: error.localizedDescription);
 #else
-        id compactedObject = @{
+        NSDictionary *compactedObject = @{
             @"attribute1": @"value1",
             @"attribute2": @42,
             @"child1": @{
@@ -72,20 +72,27 @@ int main(int argc, char *argv[])
 
         id <SCIXMLCanonicalizingTransform> transform = [SCIXMLCanonicalizingTransform new];
 
-        transform.typeProvider = ^(id node, NSError *__autoreleasing *error) {
-            return SCIXMLNodeTypeElement;
+        transform.typeProvider = ^(NSDictionary *node, NSError *__autoreleasing *error) {
+            if (node == compactedObject || [compactedObject.allValues containsObject:node]) {
+                return SCIXMLNodeTypeElement;
+            } else {
+                return SCIXMLNodeTypeText;
+            }
         };
         transform.nameProvider = ^(id node, NSError *__autoreleasing *error) {
             return node == compactedObject ? @"root" : @"child";
+        };
+        transform.textProvider = ^(NSDictionary<NSString *, NSObject *> *node, NSError *__autoreleasing *error) {
+            return node[SCIXMLNodeKeyText].description;
         };
         transform.childProvider = ^(id node, NSError *__autoreleasing *error) {
             if (node[@"child1"]) {
                 return @[ node[@"child1"], node[@"child2"] ];
             }
-            return @[];
+            return @[ @{ SCIXMLNodeKeyText: node[@"subattribute"] } ];
         };
         transform.attributeProvider = ^(id node, NSError *__autoreleasing *error) {
-            NSArray *arr = node == compactedObject ? @[@"attribute1", @"attribute2"] : @[@"subattribute"];
+            NSArray *arr = node == compactedObject ? @[ @"attribute1", @"attribute2" ] : @[ @"subattribute" ];
             return [NSSet setWithArray:arr];
         };
         transform.attributeTransform = ^NSString *(id node, NSString *name, NSError *__autoreleasing *error) {

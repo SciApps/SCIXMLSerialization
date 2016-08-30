@@ -56,4 +56,14 @@
                            attributeTransform:attributeTransform];
 }
 
++ (instancetype)memberToAttributeTransformWithTypeMap:(NSDictionary *)typeMap {
+    NSAssert(NO, @"Unimplemented");
+    return nil;
+}
+
++ (instancetype)memberToChildTransformWithTypeMap:(NSDictionary *)typeMap {
+    NSAssert(NO, @"Unimplemented");
+    return nil;
+}
+
 @end

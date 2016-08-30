@@ -63,5 +63,8 @@ NS_ASSUME_NONNULL_BEGIN
                              textProvider:(NSString *_Nullable (^_Nullable)(id, NSError *__autoreleasing *))textProvider
                        attributeTransform:(NSString *_Nullable (^_Nullable)(id, NSString *, NSError *__autoreleasing *))attributeTransform;
 
++ (instancetype)memberToAttributeTransformWithTypeMap:(NSDictionary *)typeMap;
++ (instancetype)memberToChildTransformWithTypeMap:(NSDictionary *)typeMap;
+
 @end
 NS_ASSUME_NONNULL_END
