@@ -9,8 +9,10 @@
 //
 
 #import <Foundation/Foundation.h>
-#import <libxml/tree.h>
 
+#ifndef __XML_TREE_H__
+typedef struct _xmlError xmlError;
+#endif // __XML_TREE_H__
 
 typedef NS_ENUM(NSUInteger, SCIXMLErrorCode) {
     SCIXMLErrorCodeParserInit        = 1, // failed to initialize parser

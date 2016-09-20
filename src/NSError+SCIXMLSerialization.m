@@ -8,9 +8,11 @@
 // Copyright (C) SciApps.io, 2016.
 //
 
+#import <stdarg.h>
+#import <libxml/tree.h>
+
 #import "NSError+SCIXMLSerialization.h"
 
-#import <stdarg.h>
 
 NSString *const SCIXMLErrorDomain = @"SCIXMLErrorDomain";
 
