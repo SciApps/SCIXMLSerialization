@@ -970,7 +970,7 @@ NS_ASSUME_NONNULL_END
     xmlDoc *doc = xmlCtxtReadMemory(
         parser,
         xml.bytes,
-        xml.length,
+        (int)xml.length,
         "",
         "UTF-8",
         XML_PARSE_NOENT | XML_PARSE_NONET | XML_PARSE_NOBLANKS | XML_PARSE_HUGE

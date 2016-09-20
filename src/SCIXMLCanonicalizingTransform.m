@@ -32,8 +32,15 @@
     return self;
 }
 
-- (instancetype)init {
-    return [self initWithTypeProvider:nil
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wobjc-designated-initializers"
+- (instancetype _Nullable)init {
+    return nil;
+}
+#pragma clang diagnostic pop
+
+- (instancetype)initWithTypeProvider:(NSString *_Nullable (^)(id, NSError *__autoreleasing *))typeProvider {
+    return [self initWithTypeProvider:typeProvider
                          nameProvider:nil
                     attributeProvider:nil
                         childProvider:nil

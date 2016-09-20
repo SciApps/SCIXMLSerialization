@@ -1,0 +1,10 @@
+<root>
+  <foo bar="YES" baz="false">
+    <info>Qux!</info>
+    <woot>Dux!</woot>
+    <nested>
+      <first x="1" y="2">Hah!</first>
+      <second>Bruh!</second>
+    </nested>
+  </foo>
+</root>

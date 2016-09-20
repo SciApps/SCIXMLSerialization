@@ -51,6 +51,10 @@ NS_ASSUME_NONNULL_BEGIN
                   attributeTransform:(NSString *_Nullable (^_Nullable)(id, NSString *, NSError *__autoreleasing *))attributeTransform
                             NS_DESIGNATED_INITIALIZER;
 
+- (instancetype)initWithTypeProvider:(NSString *_Nullable (^)(id, NSError *__autoreleasing *))typeProvider;
+
+- (instancetype _Nullable)init;
+
 //
 // Convenience factory methods for common use cases
 //

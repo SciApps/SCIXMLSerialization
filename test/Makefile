@@ -10,11 +10,12 @@ all:
 		-fobjc-arc \
 		-g \
 		-I$(shell xcrun -sdk macosx --show-sdk-path)/usr/include/libxml2 \
+		-I../src \
 		-lobjc \
 		-lxml2 \
 		-framework Foundation \
 		-o test \
-		*.m
+		../src/*.m ./*.m
 
 clean:
 	rm -f main test *.o

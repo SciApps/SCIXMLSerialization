@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist>
+	<dict>
+		<key>Foo</key>
+		<string>Bar &amp; Baz</string>
+		<![CDATA[áéőóűüöÖŰŐÜÉÁÁÚÓÍí<><><><><>&gt;&aacute;LOL]]>
+		<key qux="this is no valid PLIST!" lol="look at ma attribute">Key Two</key>
+		<array>
+			<number>0</number>
+			<number>1</number>
+			<number>2</number>
+		</array>
+		<!-- this comment is redundant -->
+		<true/>
+	</dict>
+</plist>

@@ -70,15 +70,16 @@ int main(int argc, char *argv[])
             },
         };
 
-        id <SCIXMLCanonicalizingTransform> transform = [SCIXMLCanonicalizingTransform new];
-
-        transform.typeProvider = ^(NSDictionary *node, NSError *__autoreleasing *error) {
+        id typeProvider = ^(NSDictionary *node, NSError *__autoreleasing *error) {
             if (node == compactedObject || [compactedObject.allValues containsObject:node]) {
                 return SCIXMLNodeTypeElement;
             } else {
                 return SCIXMLNodeTypeText;
             }
         };
+
+        id <SCIXMLCanonicalizingTransform> transform = [[SCIXMLCanonicalizingTransform alloc] initWithTypeProvider:typeProvider];
+
         transform.nameProvider = ^(id node, NSError *__autoreleasing *error) {
             return node == compactedObject ? @"root" : @"child";
         };
