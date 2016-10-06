@@ -63,6 +63,19 @@
                            attributeTransform:attributeTransform];
 }
 
+#pragma mark - NSCopying
+
+- (instancetype)copyWithZone:(NSZone *)zone {
+    return [self.class transformWithTypeProvider:self.typeProvider
+                                    nameProvider:self.nameProvider
+                               attributeProvider:self.attributeProvider
+                                   childProvider:self.childProvider
+                                    textProvider:self.textProvider
+                              attributeTransform:self.attributeTransform];
+}
+
+#pragma mark - Convenience factory methods
+
 + (instancetype)memberToAttributeTransformWithTypeMap:(NSDictionary *)typeMap {
     NSAssert(NO, @"Unimplemented");
     return nil;

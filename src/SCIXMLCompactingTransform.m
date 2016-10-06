@@ -135,6 +135,16 @@ NS_ASSUME_NONNULL_END
     return newTransform;
 }
 
+#pragma mark - NSCopying
+
+- (instancetype)copyWithZone:(NSZone *)zone {
+    return [self.class transformWithTypeTransform:self.typeTransform
+                                    nameTransform:self.nameTransform
+                                    textTransform:self.textTransform
+                               attributeTransform:self.attributeTransform
+                                    nodeTransform:self.nodeTransform];
+}
+
 #pragma mark - Convenience factory methods
 
 + (instancetype)transformWithTypeTransform:(id _Nullable (^_Nullable)(id))typeTransform
@@ -149,6 +159,28 @@ NS_ASSUME_NONNULL_END
                             attributeTransform:attributeTransform
                                  nodeTransform:nodeTransform];
 }
+
++ (instancetype)basicCompactingTransformWithChildFlatteningGroupingMap:(NSDictionary<NSString *, NSArray<NSString *> *> *_Nullable)groupingMap
+                                                attributeParserTypeMap:(NSDictionary<NSString *, id> *_Nullable)attributeParserTypeMap
+                                               attributeParserFallback:(id _Nullable)attributeParserFallback
+                                                   memberParserTypeMap:(NSDictionary<NSString *, id> *_Nullable)memberParserTypeMap
+                                                  memberParserFallback:(id _Nullable)memberParserFallback {
+
+    NSArray<id<SCIXMLCompactingTransform>> *transforms = @[
+        self.attributeFlatteningTransform,
+        self.elementTypeFilterTransform,
+        self.textNodeFlatteningTransform,
+        [self childFlatteningTransformWithGroupingMap:groupingMap],
+        [self attributeParserTransformWithTypeMap:attributeParserTypeMap ?: @{}
+                                         fallback:attributeParserFallback ?: SCIXMLParserTypeIdentity],
+        [self memberParserTransformWithTypeMap:memberParserTypeMap ?: @{}
+                                      fallback:memberParserFallback ?: SCIXMLParserTypeIdentity],
+    ];
+
+    return [SCIXMLCompactingTransform combineTransforms:transforms
+                             conflictResolutionStrategy:SCIXMLTransformCombinationConflictResolutionStrategyCompose];
+}
+
 
 + (instancetype)attributeFlatteningTransform {
     id <SCIXMLCompactingTransform> transform = [self new];

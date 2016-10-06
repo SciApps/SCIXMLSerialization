@@ -40,7 +40,7 @@ FOUNDATION_EXPORT NSString *const SCIXMLParserTypeDate;
 FOUNDATION_EXPORT NSString *const SCIXMLParserTypeBase64;
 
 
-@protocol SCIXMLCompactingTransform <NSObject>
+@protocol SCIXMLCompactingTransform <NSObject, NSCopying>
 
 @property (nonatomic, copy, nullable) id _Nullable (^typeTransform)(id);
 @property (nonatomic, copy, nullable) id _Nullable (^nameTransform)(id);
@@ -52,8 +52,10 @@ FOUNDATION_EXPORT NSString *const SCIXMLParserTypeBase64;
 // we don't get the valueForKey: and setValue:forKey: methods
 // by conforming to the NSObject protocol. So, this explicit
 // declaration of the methods is necessary.
+// Similarly, -copy is not found in either <NSObject> or <NSCopying>.
 - (id _Nullable)valueForKey:(NSString *)key;
 - (void)setValue:(id _Nullable)value forKey:(NSString *)key;
+- (id)copy;
 
 @end
 
@@ -131,6 +133,17 @@ NS_ASSUME_NONNULL_BEGIN
                              textTransform:(id _Nullable (^_Nullable)(id))textTransform
                         attributeTransform:(id _Nullable (^_Nullable)(id))attributeTransform
                              nodeTransform:(id           (^_Nullable)(id))nodeTransform;
+
+// A transform that simplifies canonical trees in a generalized manner
+// so that usual XML documents are easier to use. It is composed of the attribute flattening
+// transform, the element type filtering transform, the text node flattening transform,
+// the child flattening transform with the specified grouping map and the member parser
+// transform with the specified type map and fallback, in this order.
++ (instancetype)basicCompactingTransformWithChildFlatteningGroupingMap:(NSDictionary<NSString *, NSArray<NSString *> *> *_Nullable)groupingMap
+                                                attributeParserTypeMap:(NSDictionary<NSString *, id> *_Nullable)attributeParserTypeMap
+                                               attributeParserFallback:(id _Nullable)attributeParserFallback
+                                                   memberParserTypeMap:(NSDictionary<NSString *, id> *_Nullable)memberParserTypeMap
+                                                  memberParserFallback:(id _Nullable)memberParserFallback;
 
 // A transform that removes the 'attributes' dictionary and adds its contents
 // directly to the node being transformed.

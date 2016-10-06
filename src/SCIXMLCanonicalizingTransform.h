@@ -12,7 +12,7 @@
 
 
 NS_ASSUME_NONNULL_BEGIN
-@protocol SCIXMLCanonicalizingTransform <NSObject>
+@protocol SCIXMLCanonicalizingTransform <NSObject, NSCopying>
 
 // These properties must return a value upon successful completion.
 // They must return nil to indicate a failure, and if the out error parameter is not
@@ -25,6 +25,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, copy, nullable) NSString *_Nullable (^textProvider)(id, NSError *__autoreleasing *);
 @property (nonatomic, copy, nullable) NSString *_Nullable (^attributeTransform)(id, NSString *, NSError *__autoreleasing *);
+
+- (id)copy;
 
 @end
 NS_ASSUME_NONNULL_END
