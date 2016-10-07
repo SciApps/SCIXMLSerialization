@@ -1082,6 +1082,27 @@ NS_ASSUME_NONNULL_END
                                             error:error];
 }
 
++ (NSString *_Nullable)xmlStringWithNaturalDictionary:(NSDictionary *)root
+                                          indentation:(NSString *_Nullable)indentation
+                                                error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(root);
+
+    // First, generate a semi-canonical representation of the root object (which is in natural format)
+    NSDictionary *semiCanonical = [SCIXMLCanonicalizingTransform semiCanonicalDictionaryWithNaturalDictionary:root
+                                                                                                        error:error];
+
+    if (semiCanonical == nil) {
+        return nil;
+    }
+
+    // Then, canonicalize the semi-canonical dictionary
+    return [self xmlStringWithCompactedObject:semiCanonical
+                      canonicalizingTransform:SCIXMLCanonicalizingTransform.transformForCanonicalizingNaturalDictionary
+                                  indentation:indentation
+                                        error:error];
+}
+
 #pragma mark - Generating/Serialization into Binary Data
 
 + (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
@@ -1133,6 +1154,27 @@ NS_ASSUME_NONNULL_END
     return [self xmlDataWithCanonicalDictionary:canonicalDict
                                     indentation:indentation
                                           error:error];
+}
+
++ (NSData *_Nullable)xmlDataWithNaturalDictionary:(NSDictionary *)root
+                                      indentation:(NSString *_Nullable)indentation
+                                            error:(NSError *__autoreleasing *)error {
+
+    NSParameterAssert(root);
+
+    // First, generate a semi-canonical representation of the root object (which is in natural format)
+    NSDictionary *semiCanonical = [SCIXMLCanonicalizingTransform semiCanonicalDictionaryWithNaturalDictionary:root
+                                                                                                        error:error];
+
+    if (semiCanonical == nil) {
+        return nil;
+    }
+
+    // Then, canonicalize the semi-canonical dictionary
+    return [self xmlDataWithCompactedObject:semiCanonical
+                    canonicalizingTransform:SCIXMLCanonicalizingTransform.transformForCanonicalizingNaturalDictionary
+                                indentation:indentation
+                                      error:error];
 }
 
 @end

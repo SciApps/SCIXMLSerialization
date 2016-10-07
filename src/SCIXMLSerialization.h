@@ -64,6 +64,10 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeEntityRef;
                                         indentation:(NSString *_Nullable)indentation
                                               error:(NSError *__autoreleasing *)error;
 
++ (NSString *_Nullable)xmlStringWithNaturalDictionary:(NSDictionary *)root
+                                          indentation:(NSString *_Nullable)indentation
+                                                error:(NSError *__autoreleasing *)error;
+
 #pragma mark - Generating/Serialization into Binary Data
 
 + (NSData *_Nullable)xmlDataWithCanonicalDictionary:(NSDictionary *)dictionary
@@ -75,6 +79,9 @@ FOUNDATION_EXPORT NSString *const SCIXMLNodeTypeEntityRef;
                                     indentation:(NSString *_Nullable)indentation
                                           error:(NSError *__autoreleasing *)error;
 
++ (NSData *_Nullable)xmlDataWithNaturalDictionary:(NSDictionary *)root
+                                      indentation:(NSString *_Nullable)indentation
+                                            error:(NSError *__autoreleasing *)error;
 
 @end
 

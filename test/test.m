@@ -4,7 +4,7 @@
 int main(int argc, char *argv[])
 {
     @autoreleasepool {
-#if 1
+#if 0
         NSStringEncoding enc = 0;
         NSString *inXML = [NSString stringWithContentsOfFile:@(argv[1])
                                               usedEncoding:&enc
@@ -28,64 +28,43 @@ int main(int argc, char *argv[])
                                                              error:&error];
         NSLog(@"%@", obj ?: error.localizedDescription);
 #else
-        NSDictionary *compactedObject = @{
-            @"attribute1": @"value1",
-            @"attribute2": @42,
-            @"child1": @{
-                @"subattribute": @"value3",
+        NSDictionary *root = @{
+            @"DC_LOGINREQ": @{
+                SCIXMLTempKeyAttrs: @{
+                    @"xmlns":    @"namespace",
+                    @"testAttr": @"please work",
+                },
+                @"LangCode": @"EN",
+                @"foo": @{
+                    @"lol": @"LOL content",
+                    @"qux": @"content QUX",
+                },
+                @"bar": @[
+                    @{
+                        @"baz": @{
+                            SCIXMLTempKeyAttrs: @{
+                                @"attrname": @"attrvalue",
+                            },
+                            SCIXMLTempKeyChild: @[
+                                @{ @"baz": @"BAZ 1" },
+                                @{ @"baz": @"BAZ 2" },
+                            ]
+                        }
+                    },
+                    @{ @"baz": @"BAZ 3" },
+                    @{
+                        @"baz": @{ SCIXMLTempKeyAttrs: @{ @"OK": @"Google" }, @"inner": @[ @{ @"innermost": @"innervalue" }, @{ @"innermost": @"another" } ] },
+                    },
+                ],
             },
-            @"child2": @{
-                @"subattribute": [NSDate date],
-            },
         };
-
-        id typeProvider = ^(NSDictionary *node, NSError *__autoreleasing *error) {
-            if (node == compactedObject || [compactedObject.allValues containsObject:node]) {
-                return SCIXMLNodeTypeElement;
-            } else {
-                return SCIXMLNodeTypeText;
-            }
-        };
-
-        id <SCIXMLCanonicalizingTransform> transform = [[SCIXMLCanonicalizingTransform alloc] initWithTypeProvider:typeProvider];
-
-        transform.nameProvider = ^(id node, NSError *__autoreleasing *error) {
-            return node == compactedObject ? @"root" : @"child";
-        };
-        transform.textProvider = ^(NSDictionary<NSString *, NSObject *> *node, NSError *__autoreleasing *error) {
-            return node[SCIXMLNodeKeyText].description;
-        };
-        transform.childProvider = ^(id node, NSError *__autoreleasing *error) {
-            if (node[@"child1"]) {
-                return @[ node[@"child1"], node[@"child2"] ];
-            }
-            return @[ @{ SCIXMLNodeKeyText: node[@"subattribute"] } ];
-        };
-        transform.attributeProvider = ^(id node, NSError *__autoreleasing *error) {
-            NSArray *arr = node == compactedObject ? @[ @"attribute1", @"attribute2" ] : @[ @"subattribute" ];
-            return [NSSet setWithArray:arr];
-        };
-        transform.attributeTransform = ^NSString *(id node, NSString *name, NSError *__autoreleasing *error) {
-            if ([name isEqualToString:@"attribute1"]) {
-                return node[name];
-            } else if ([name isEqualToString:@"attribute2"]) {
-                return [node[name] description];
-            } else if ([name isEqualToString:@"subattribute"]) {
-                return [node[name] description];
-            }
-            return nil;
-        };
-        // transform.textProvider = ^(id object, NSError *__autoreleasing *error) {
-        //     return @"YOLO AND SWAG";
-        // };
 
         NSError *error = nil;
-        NSString *xml = [SCIXMLSerialization xmlStringWithCompactedObject:compactedObject
-                                                  canonicalizingTransform:transform
-                                                              indentation:@"    "
-                                                                    error:&error];
+        NSString *xml = [SCIXMLSerialization xmlStringWithNaturalDictionary:root
+                                                                indentation:@"    "
+                                                                      error:&error];
 
-        NSLog(@"%@", xml ?: error);
+        NSLog(@"\n\n%@", xml ?: error);
 #endif
     }
 

@@ -264,5 +264,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)memberFilterTransformWithWhitelist:(NSArray<NSString *> *)whitelist;
 + (instancetype)memberFilterTransformWithBlacklist:(NSArray<NSString *> *)blacklist;
 
+#pragma mark - Other helper methods
+
++ (NSDictionary *)naturalDictionaryWithCompactedDictionary:(NSDictionary *)compactedDictionary;
+
 @end
 NS_ASSUME_NONNULL_END

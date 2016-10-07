@@ -691,6 +691,21 @@ NS_ASSUME_NONNULL_END
     return nil;
 }
 
+#pragma mark - Other helper methods
+
++ (NSDictionary *)naturalDictionaryWithCompactedDictionary:(NSDictionary *)compactedDictionary {
+    NSParameterAssert(compactedDictionary);
+
+    NSString *rootName = compactedDictionary[SCIXMLNodeKeyName];
+
+    NSMutableDictionary *mutableChild = [compactedDictionary mutableCopy];
+    mutableChild[SCIXMLNodeKeyName] = nil;
+
+    return @{
+        rootName: mutableChild
+    };
+}
+
 #pragma mark - Initializers
 
 - (instancetype)initWithTypeTransform:(id _Nullable (^_Nullable)(id))typeTransform
