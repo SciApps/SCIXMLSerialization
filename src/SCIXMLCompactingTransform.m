@@ -40,6 +40,7 @@ NSString *const SCIXMLParserTypeUnescapeXML      = @"UnescapeXML";
 NSString *const SCIXMLParserTypeTimestamp        = @"Timestamp";
 NSString *const SCIXMLParserTypeDate             = @"Date";
 NSString *const SCIXMLParserTypeBase64           = @"Base64";
+NSString *const SCIXMLParserTypeURL              = @"URL";
 
 
 NS_ASSUME_NONNULL_BEGIN
@@ -609,6 +610,15 @@ NS_ASSUME_NONNULL_END
             }
 
             return data;
+        },
+        SCIXMLParserTypeURL: ^id _Nullable (NSString *name, NSString *value) {
+            if (value.sci_isString == NO) {
+                return [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                             format:@"expected an NSString for key '%@'", name];
+            }
+
+            return [NSURL URLWithString:value] ?: [NSError SCIXMLErrorWithCode:SCIXMLErrorCodeMalformedTree
+                                                                        format:@"malformed URL string for key '%@'", name];
         },
         // TODO(H2CO3): implement all parser transforms
     };

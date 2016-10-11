@@ -4,15 +4,18 @@
 int main(int argc, char *argv[])
 {
     @autoreleasepool {
-#if 0
+#if 1
         NSStringEncoding enc = 0;
         NSString *inXML = [NSString stringWithContentsOfFile:@(argv[1])
                                               usedEncoding:&enc
                                                      error:NULL];
 
+        inXML = @"<root><status>404</status><url>http://google.com:8080/foo?q=query</url></root>";
+
         NSDictionary<NSString *, id> *typeMap = @{
             @"CipherValue": SCIXMLParserTypeBase64,
             @"return": SCIXMLParserTypeBase64,
+            @"url": SCIXMLParserTypeURL,
         };
 
         id <SCIXMLCompactingTransform> transform;
@@ -26,7 +29,7 @@ int main(int argc, char *argv[])
         id obj = [SCIXMLSerialization compactedObjectWithXMLString:inXML
                                                compactingTransform:[transform copy] // test copying
                                                              error:&error];
-        NSLog(@"%@", obj ?: error.localizedDescription);
+        NSLog(@"%@", [obj[@"url"] class] ?: error.localizedDescription);
 #else
         NSDictionary *root = @{
             @"DC_LOGINREQ": @{

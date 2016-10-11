@@ -38,6 +38,7 @@ FOUNDATION_EXPORT NSString *const SCIXMLParserTypeUnescapeXML;
 FOUNDATION_EXPORT NSString *const SCIXMLParserTypeTimestamp;
 FOUNDATION_EXPORT NSString *const SCIXMLParserTypeDate;
 FOUNDATION_EXPORT NSString *const SCIXMLParserTypeBase64;
+FOUNDATION_EXPORT NSString *const SCIXMLParserTypeURL;
 
 
 @protocol SCIXMLCompactingTransform <NSObject, NSCopying>

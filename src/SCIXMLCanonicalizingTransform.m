@@ -175,7 +175,7 @@ NSString *const SCIXMLTmpTypeTextNode        = @"textNode";
         // the temporary semi-canonical format by hand using deeper and deeper
         // levels of "child" links - it's just superfluous and would needlessly
         // complicate attribute handling. Hence, its implementation is omitted,
-        // and this function merely performs the naive and obviuos iteration.
+        // and this function merely performs the naive and obvious iteration.
         NSArray *(^childArrayWithKeysAndValuesOfDictionary)(NSDictionary *) = ^NSArray *(NSDictionary *dict) {
             NSMutableArray *children = [NSMutableArray arrayWithCapacity:dict.count];
 
