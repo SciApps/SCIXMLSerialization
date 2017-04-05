@@ -551,25 +551,33 @@ NS_ASSUME_NONNULL_END
             }
 
             // Creating a date formatter is expensive - formatters should be re-used
-            static NSDateFormatter *dateFormatter = nil;
+            static NSArray<NSDateFormatter *> *dateFormatters;
             static dispatch_once_t token;
 
             dispatch_once(&token, ^{
-                dateFormatter = [NSDateFormatter new];
-                dateFormatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
-                dateFormatter.timeZone = [NSTimeZone timeZoneWithName:@"UTC"];
+                // Common date formats resembling ISO-8601 full date and time
+                NSArray<NSString *> *dateFormats = @[
+                    @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.SZ",
+                    @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.S",
+                    @"yyyy'-'MM'-'dd'T'HH':'mm':'ssZ",
+                    @"yyyy'-'MM'-'dd'T'HH':'mm':'ss",
+                ];
+
+                NSMutableArray<NSDateFormatter *> *mutableDateFormatters =
+                    [NSMutableArray arrayWithCapacity:dateFormats.count];
+
+                for (NSString *dateFormat in dateFormats) {
+                    NSDateFormatter *dateFormatter = [NSDateFormatter new];
+                    dateFormatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+                    dateFormatter.timeZone = [NSTimeZone timeZoneWithName:@"UTC"];
+                    dateFormatter.dateFormat = dateFormat;
+                    [mutableDateFormatters addObject:dateFormatter];
+                }
+
+                dateFormatters = mutableDateFormatters;
             });
 
-            // Common date formats resembling ISO-8601 full date and time
-            NSArray<NSString *> *dateFormats = @[
-                @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.SZ",
-                @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.S",
-                @"yyyy'-'MM'-'dd'T'HH':'mm':'ssZ",
-                @"yyyy'-'MM'-'dd'T'HH':'mm':'ss",
-            ];
-
-            for (NSString *format in dateFormats) {
-                dateFormatter.dateFormat = format;
+            for (NSDateFormatter *dateFormatter in dateFormatters) {
                 NSDate *date = [dateFormatter dateFromString:value];
 
                 if (date) {

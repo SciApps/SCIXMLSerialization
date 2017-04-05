@@ -10,13 +10,9 @@ int main(int argc, char *argv[])
                                               usedEncoding:&enc
                                                      error:NULL];
 
-        inXML = @"<root><status>404</status><url>http://google.com:8080/foo?q=query</url></root>";
+        inXML = @"<root><date>2017-04-03T13:37:42</date></root>";
 
-        NSDictionary<NSString *, id> *typeMap = @{
-            @"CipherValue": SCIXMLParserTypeBase64,
-            @"return": SCIXMLParserTypeBase64,
-            @"url": SCIXMLParserTypeURL,
-        };
+        NSDictionary *typeMap = @{ @"date": SCIXMLParserTypeDate };
 
         id <SCIXMLCompactingTransform> transform;
         transform = [SCIXMLCompactingTransform basicCompactingTransformWithChildFlatteningGroupingMap:nil
@@ -29,37 +25,23 @@ int main(int argc, char *argv[])
         id obj = [SCIXMLSerialization compactedObjectWithXMLString:inXML
                                                compactingTransform:[transform copy] // test copying
                                                              error:&error];
-        NSLog(@"%@", [obj[@"url"] class] ?: error.localizedDescription);
+        NSLog(@"%@ | %@", obj, [obj[@"date"] class] ?: error.localizedDescription);
 #else
         NSDictionary *root = @{
-            @"DC_LOGINREQ": @{
-                SCIXMLTempKeyAttrs: @{
-                    @"xmlns":    @"namespace",
-                    @"testAttr": @"please work",
-                },
-                @"LangCode": @"EN",
-                @"foo": @{
-                    @"lol": @"LOL content",
-                    @"qux": @"content QUX",
-                },
-                @"bar": @[
-                    @{
-                        @"baz": @{
-                            SCIXMLTempKeyAttrs: @{
-                                @"attrname": @"attrvalue",
-                            },
-                            SCIXMLTempKeyChild: @[
-                                @{ @"baz": @"BAZ 1" },
-                                @{ @"baz": @"BAZ 2" },
-                            ]
-                        }
+            @"DC_LOGINREQ": @[
+                @{ @"LangCode": @"EN", },
+                @{
+                    @"baz": @{
+                        SCIXMLTempKeyAttrs: @{
+                            @"attrname": @"attrvalue",
+                        },
+                        SCIXMLTempKeyChild: @[
+                            @{ @"baz": @"BAZ 1" },
+                            @{ @"baz": @"BAZ 2" },
+                        ],
                     },
-                    @{ @"baz": @"BAZ 3" },
-                    @{
-                        @"baz": @{ SCIXMLTempKeyAttrs: @{ @"OK": @"Google" }, @"inner": @[ @{ @"innermost": @"innervalue" }, @{ @"innermost": @"another" } ] },
-                    },
-                ],
-            },
+                },
+            ],
         };
 
         NSError *error = nil;
